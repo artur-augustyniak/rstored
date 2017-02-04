@@ -1,0 +1,6 @@
+[package]
+name = "rstored"
+version = "0.1.0"
+authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
+
+[dependencies]
