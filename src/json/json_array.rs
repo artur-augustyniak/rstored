@@ -1,11 +1,9 @@
-extern crate serde_json;
-
 use std::fmt::{Display, Formatter, Result};
 use json::json_chunk::JsonChunk;
 
 
 pub struct JsonArray {
-    pub  content: Vec<Box<JsonChunk>>
+    content: Vec<Box<JsonChunk>>
 }
 
 impl JsonArray {

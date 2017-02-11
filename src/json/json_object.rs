@@ -1,36 +1,42 @@
-use std;
 use std::fmt::{Display, Formatter, Result};
 use json::json_chunk::JsonChunk;
-use serde_json::Value;
+
+
+enum JsonFieldValue {
+    Null,
+    Bool(bool),
+    s64,
+    String(String),
+    JsonArray,
+    JsonObject,
+}
+
+struct JsonField {
+    name: String,
+    value: JsonFieldValue
+}
+
 
 pub struct JsonObject {
-    content: Value
+    content: Vec<Box<JsonField>>
 }
 
 impl JsonObject {
     pub fn new() -> JsonObject {
         JsonObject {
-            content: json!({})
+            content: Vec::new()
         }
     }
 }
 
-//impl JsonChunk for JsonObject {
-//    fn area(&self) -> f64 {
-//        std::f64::consts::PI
-//    }
-//    fn append<JsonChunk: ? Sized>(&self, node: &JsonChunk) -> () {
-//        match self.content {
-//            Value::Object(ref array) => {
-//                println!(" {}", self.content);
-//            },
-//            _ => panic!("not an object")
-//        }
-//    }
-//}
+impl JsonChunk for JsonObject {
+    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk> {
+        None
+    }
+}
 
 impl Display for JsonObject {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{}", self.content)
+        write!(f, "{}", "{}")
     }
 }
