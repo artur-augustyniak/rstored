@@ -1,4 +1,5 @@
 use std::fmt::Display;
+
 pub trait JsonChunk: Display {
-    fn area(&self) -> f64;
+    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk>;
 }

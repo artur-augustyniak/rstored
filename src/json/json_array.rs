@@ -1,27 +1,37 @@
-use std::f64::consts::PI;
+extern crate serde_json;
+
 use std::fmt::{Display, Formatter, Result};
 use json::json_chunk::JsonChunk;
 
+
 pub struct JsonArray {
-    radius: f64
+    pub  content: Vec<Box<JsonChunk>>
 }
 
 impl JsonArray {
     pub fn new() -> JsonArray {
         JsonArray {
-            radius: 0.1
+            content: Vec::new()
         }
     }
 }
 
 impl JsonChunk for JsonArray {
-    fn area(&self) -> f64 {
-        PI * (self.radius * self.radius)
+    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk> {
+        {
+            let ref mut v = self.content;
+            v.push(node);
+        }
+        Some(self)
     }
 }
 
 impl Display for JsonArray {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "({})", self.radius)
+        write!(f, "[");
+        for x in &self.content {
+            write!(f, "{}", &x);
+        }
+        write!(f, "]")
     }
 }
