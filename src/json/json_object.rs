@@ -21,22 +21,22 @@ pub struct JsonObject {
     content: Vec<Box<JsonField>>
 }
 
-impl JsonObject {
-    pub fn new() -> JsonObject {
-        JsonObject {
-            content: Vec::new()
-        }
-    }
-}
-
-impl JsonChunk for JsonObject {
-    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk> {
-        None
-    }
-}
-
-impl Display for JsonObject {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{}", "{}")
-    }
-}
+//impl JsonObject {
+//    pub fn new() -> JsonObject {
+//        JsonObject {
+//            content: Vec::new()
+//        }
+//    }
+//}
+//
+//impl JsonChunk for JsonObject {
+//    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk> {
+//        None
+//    }
+//}
+//
+//impl Display for JsonObject {
+//    fn fmt(&self, f: &mut Formatter) -> Result {
+//        write!(f, "{}", "{}")
+//    }
+//}

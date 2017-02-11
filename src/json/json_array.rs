@@ -15,20 +15,21 @@ impl JsonArray {
 }
 
 impl JsonChunk for JsonArray {
-    fn append(&mut self, node: Box<JsonChunk>) -> Option<&JsonChunk> {
-        {
-            let ref mut v = self.content;
-            v.push(node);
-        }
-        Some(self)
+    fn append(&mut self, node: Box<JsonChunk>) -> () {
+        self.content.push(node);
     }
 }
 
 impl Display for JsonArray {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "[");
-        for x in &self.content {
-            write!(f, "{}", &x);
+        let mut range = self.content.iter();
+        match range.next() {
+            Some(token) => { write!(f, "{}", &token); }
+            _ => (),
+        }
+        for x in range {
+            write!(f, ",{}", &x);
         }
         write!(f, "]")
     }
