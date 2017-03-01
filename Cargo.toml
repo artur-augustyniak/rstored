@@ -4,7 +4,10 @@ version = "0.1.0"
 authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
 
 [dependencies]
-tiny_http = "0.5.8"
-serde_json = "0.9.5"
-ansi_term = "0.9"
-sys-info = "0.4.1"
+rustless = "0.10.0"
+url = "1.4.0"
+iron = "0.4.0"
+valico = "1.0.1"
+serde = "0.9.10"
+serde_json = "0.9.8"
+time = "0.1.36"

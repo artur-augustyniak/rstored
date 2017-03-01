@@ -1,0 +1,22 @@
+[
+  {
+    "mount_point": "/",
+    "free_space": 43
+  },
+  {
+    "mount_point": "/boot",
+    "free_space": 68
+  },
+  {
+    "mount_point": "/var",
+    "free_space": 60
+  },
+  {
+    "mount_point": "/opt",
+    "free_space": 42
+  },
+  {
+    "mount_point": "/Backup",
+    "free_space": 24
+  }
+]
