@@ -1,11 +1,44 @@
-mod base;
+//mod base;
+//
+//
+//
+//use base::Daemon;
+//
+//fn main() {
+//    let mut d = Daemon::new("some_name");
+//    println!("{:?}", d);
+//    println!("{:?}", d.name);
+//    println!("{:?}", d.start());
+//    println!("{:?}", d.reload());
+//    println!("{:?}", d);
+//    println!("{:?}", d.stop());
+//}
 
-use base::Daemon;
+extern crate unix_daemonize;
+
+use std::{io, env, time, thread, process};
+use std::io::Write;
+use unix_daemonize::{daemonize_redirect, ChdirMode};
 
 fn main() {
-    let mut d = Daemon::new("some_name");
-    println!("{:?}", d.name);
-    println!("{:?}", d.start());
-    println!("{:?}", d.reload());
-    println!("{:?}", d.stop());
+    let mut args = env::args();
+    let cmd_proc = args.next().unwrap();
+
+    if let (Some(stdout_filename), Some(stderr_filename)) = (args.next(), args.next()) {
+        println!("Ready to daemonize, target stdout_filename = {}, stderr_filename = {}", stdout_filename, stderr_filename);
+        daemonize_redirect(Some(stdout_filename), Some(stderr_filename), ChdirMode::ChdirRoot).unwrap();
+        println!("Running");
+        for _ in 0 .. 10 {
+            println!("A string for stdout!");
+            writeln!(&mut io::stdout(), "Another string for stdout!").unwrap();
+            writeln!(&mut io::stderr(), "A string for stderr!").unwrap();
+            thread::sleep(time::Duration::from_millis(1000));
+        }
+        println!("Successfull termination");
+//        panic!("An now a panic occurs!");
+    } else {
+        writeln!(&mut io::stderr(), "Usage: {} <stdout_filename> <stderr_filename>", cmd_proc).unwrap();
+        process::exit(1);
+    }
+    println!("Stopping");
 }
