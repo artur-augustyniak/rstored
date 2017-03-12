@@ -3,6 +3,15 @@
 //!
 //! Lorem Ipsum
 //! functionality for building portable Rust software.
+
+
+extern crate unix_daemonize;
+
+use std::{io, env, time, thread, process};
+use std::io::Write;
+use self::unix_daemonize::{daemonize_redirect, ChdirMode};
+
+
 #[derive(Debug, PartialEq)]
 pub enum State {
     Running,
@@ -35,6 +44,22 @@ impl<T> Daemon<T> {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
+                let stdout_filename = "/tmp/stdout.log";
+                let stderr_filename = "/tmp/stdout.log";
+                println!("Ready to daemonize, target stdout_filename = {}, stderr_filename = {}", stdout_filename, stderr_filename);
+                daemonize_redirect(Some(stdout_filename), Some(stderr_filename), ChdirMode::ChdirRoot).unwrap();
+
+                println!("Running");
+                for _ in 0..10 {
+                    println!("A string for stdout!");
+                    println!("A parent state object {:?}", self.state);
+                    writeln!(&mut io::stdout(), "Another string for stdout!").unwrap();
+                    writeln!(&mut io::stderr(), "A string for stderr!").unwrap();
+                    thread::sleep(time::Duration::from_millis(1000));
+                }
+                println!("Successfull termination");
+
+
                 Ok(State::Running)
             },
             State::Running => {

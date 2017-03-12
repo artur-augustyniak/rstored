@@ -2,6 +2,8 @@
 name = "rstored"
 version = "0.1.0"
 dependencies = [
+ "chan 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chan-signal 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "iron 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustless 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -21,6 +23,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-set"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bit-vec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "bodyparser"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -30,6 +45,25 @@ dependencies = [
  "plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.8.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.8.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "chan"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "chan-signal"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chan 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -564,7 +598,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
 "checksum aho-corasick 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ca972c2ea5f742bfce5687b9aef75506a764f61d37f8f649047846a9686ddb66"
+"checksum bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d9bf6104718e80d7b26a68fdbacff3481cfc05df670821affc7e9cbc1884400c"
+"checksum bit-vec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5b97c2c8e8bbb4251754f559df8af22fb264853c7d009084a576cdf12565089d"
 "checksum bodyparser 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "07b171b407e583dc8f01011a713f20575a81ac60acecf3b8153012709aeb1fd6"
+"checksum chan 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)" = "f93bfe971116428a9066c1c3c69a09ae3ef69432f8418be28ab50f96783e6a50"
+"checksum chan-signal 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0f3bb6c3bc387004ad914f0c5b7f33ace8bf7604bbec35f228b1a017f52cd3a0"
 "checksum conduit-mime-types 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)" = "95ca30253581af809925ef68c2641cc140d6183f43e12e0af4992d53768bd7b8"
 "checksum cookie 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "0e3d6405328b6edb412158b3b7710e2634e23f3614b9bb1c412df7952489a626"
 "checksum cookie 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d53b80dde876f47f03cda35303e368a79b91c70b0d65ecba5fd5280944a08591"
