@@ -1,77 +1,37 @@
-mod base;
-
 #[macro_use]
 extern crate chan;
 extern crate chan_signal;
 
+use std::process::{exit};
 
+use std::thread::{spawn, sleep};
 use std::time::Duration;
+use chan::{Receiver};
+use chan_signal::{Signal, notify};
 
-use chan_signal::Signal;
 
-extern crate unix_daemonize;
-
-use std::{io, env, time, thread, process};
-use std::io::Write;
-use self::unix_daemonize::{daemonize_redirect, ChdirMode};
-
-use base::Daemon;
-
-fn run() {
-    println!("Running work for N seconds.");
-    println!("Can you send a signal quickly enough?");
-    // Do some work.
-    for _ in 0..40 {
-        println!("A string for stdout!");
-
-        writeln!(&mut io::stdout(), "Another string for stdout!").unwrap();
-        writeln!(&mut io::stderr(), "A string for stderr!").unwrap();
-        thread::sleep(time::Duration::from_millis(1000));
+fn sig_handler(signal_chan_rx: Receiver<Signal>) {
+    loop {
+        let sig = signal_chan_rx.recv();
+        match sig {
+            Some(Signal::INT) => {
+                println!("Stopped");
+                exit(0);
+            },
+            Some(Signal::HUP) => println!("Handling HUP"),
+            None => { exit(1); },
+            Some(_) => ()
+        }
     }
-
-    // _sdone gets dropped which closes the channel and causes `rdone`
-    // to unblock.
 }
 
 
 fn main() {
-    let stdout_filename = "/tmp/stdout.log";
-    let stderr_filename = "/tmp/stdout.log";
-    println!("Ready to daemonize, target stdout_filename = {}, stderr_filename = {}", stdout_filename, stderr_filename);
-    daemonize_redirect(Some(stdout_filename), Some(stderr_filename), ChdirMode::ChdirRoot).unwrap();
-    println!("Running");
-
-//    let (sdone, rdone) = chan::sync(1);
-//    chan_signal::notify_on(&sdone, Signal::HUP);
-    // When our work is complete, send a sentinel value on `sdone`.
-    // Run work.
-    thread::spawn(move || run());
-    let signal = chan_signal::notify(&[Signal::HUP]);
-    println!("Send a HUP signal my way!");
-    // block until we get a signal
-
-    println!("{:?}", signal.recv());
-//    assert_eq!(signal.recv(), Some(Signal::INT));
-    println!("Thanks :]");
-
-    // Wait for a signal or for work to be done.
-//    chan_select! {
-////        signal.recv() -> signal => {
-////            println!("received signal: {:?}", signal)
-////        },
-//        rdone.recv() => {
-//            println!("Program completed normally.");
-//        }
-//    }
-
-
-    println!("Successfull termination");
-
-    //    let mut d = Daemon::new("rstored");
-    //    println!("in parent {:?}", d.start());
-    //    println!("in parent {:?}", d.start());
-    //
-    //
-    //    println!("in child {:?}", d.stop());
-    //    //    println!("{:?}", d.reload());
+    let signal = notify(&[Signal::INT, Signal::HUP]);
+    spawn(|| sig_handler(signal));
+    println!("Start");
+    loop {
+        println!("Working");
+        sleep(Duration::from_secs(5));
+    }
 }
