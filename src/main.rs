@@ -1,3 +1,7 @@
+mod base;
+
+use base::Daemon;
+
 #[macro_use]
 extern crate chan;
 extern crate chan_signal;
@@ -8,6 +12,7 @@ extern crate getopts;
 use getopts::Options;
 use std::env;
 use std::process::{exit};
+use std::sync::{Arc, Mutex};
 
 use std::thread::{spawn, sleep};
 use std::time::Duration;
@@ -16,17 +21,28 @@ use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 
 
-fn sig_handler(signal_chan_rx: Receiver<Signal>) {
+fn sig_handler(signal_chan_rx: Receiver<Signal>, mut daemon: std::sync::MutexGuard<Daemon<&str>>) {
     loop {
-        let sig = signal_chan_rx.recv();
-        match sig {
+        let signal = signal_chan_rx.recv();
+
+        match signal {
             Some(Signal::INT) => {
-                println!("Stopped");
+                println!("Handling INT");
+                daemon.stop();
                 exit(0);
             },
-            Some(Signal::HUP) => println!("Handling HUP"),
-            None => { exit(1); },
-            Some(_) => { /*ignore*/ }
+            Some(Signal::HUP) => {
+                println!("Handling HUP");
+                daemon.reload();
+            },
+            Some(_) => {
+                println!("Unknown Err");
+            },
+            None => {
+                println!("Error");
+                daemon.stop();
+                exit(1);
+            }
         }
     }
 }
@@ -42,14 +58,6 @@ fn demonize() {
 }
 
 
-fn do_work(inp: &str, out: Option<String>) {
-    println!("{}", inp);
-    match out {
-        Some(x) => println!("{}", x),
-        None => println!("No Output"),
-    }
-}
-
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
     print!("{}", opts.usage(&brief));
@@ -57,6 +65,8 @@ fn print_usage(program: &str, opts: Options) {
 
 
 fn main() {
+    let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
+    println!("Plumbing");
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -71,20 +81,30 @@ fn main() {
         print_usage(&program, opts);
         return;
     }
-    if !matches.opt_present("f") {
-        demonize();
-    }
+    //    if !matches.opt_present("f") {
+    //        demonize();
+    //    }
 
-    //    let mut daemon = Daemon::new("some_name");
-    //    let expected = Ok(State::Running);
-    //    let actual = daemon.start();
+    println!("Starting logic");
+
+    let mut daemon = Daemon::new("sd");
 
 
-    let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
-    spawn(|| sig_handler(signal));
-    println!("Start");
-    loop {
-        println!("DAEMON Working");
-        sleep(Duration::from_secs(5));
-    }
+
+    spawn(|| {
+        let mut daemon = Daemon::new("sd");
+        let data = Arc::new(Mutex::new(daemon));
+        let data_for_thread = data.clone();
+        let mut data = data.lock().unwrap();
+
+        sig_handler(signal, data_for_thread);
+        data.start();
+
+    });
+
+//daemon.start();
+//    data.lock().unwrap().start();
+
 }
+
+
