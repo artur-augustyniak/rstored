@@ -5,7 +5,7 @@
 //! functionality for building portable Rust software.
 
 
-use std::thread::{sleep};
+use std::thread::{spawn, sleep};
 use std::time::Duration;
 
 #[derive(Debug, PartialEq)]
@@ -22,7 +22,18 @@ pub struct Daemon<T: ? Sized> {
     pub name: T //unsized must be last
 }
 
+
+fn main_loop() {
+    loop {
+        println!("DAEMON Working");
+        sleep(Duration::from_secs(2));
+    }
+}
+
 impl<T> Daemon<T> {
+
+
+
     /// Constructs a new `Daemon<T>`.
     ///
     /// # Examples
@@ -32,7 +43,9 @@ impl<T> Daemon<T> {
     /// let mut d = Daemon::new("some_name")
     /// ```
     pub fn new(id: T) -> Daemon<T> {
-        Daemon { name: id, state: State::NotRunning }
+        let daemon = Daemon { name: id, state: State::NotRunning };
+//        spawn(move || { main_loop(); });
+        daemon
     }
 
     pub fn start(&mut self) -> Status {

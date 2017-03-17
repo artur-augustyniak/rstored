@@ -24,23 +24,22 @@ use unix_daemonize::{daemonize_redirect, ChdirMode};
 fn sig_handler(signal_chan_rx: Receiver<Signal>, mut daemon: std::sync::MutexGuard<Daemon<&str>>) {
     loop {
         let signal = signal_chan_rx.recv();
-
         match signal {
             Some(Signal::INT) => {
                 println!("Handling INT");
-                daemon.stop();
+//                daemon.stop();
                 exit(0);
             },
             Some(Signal::HUP) => {
                 println!("Handling HUP");
-                daemon.reload();
+//                daemon.restart();
             },
             Some(_) => {
-                println!("Unknown Err");
+                println!("Unknown SIGNAL");
             },
             None => {
                 println!("Error");
-                daemon.stop();
+//                daemon.stop();
                 exit(1);
             }
         }
@@ -59,14 +58,12 @@ fn demonize() {
 
 
 fn print_usage(program: &str, opts: Options) {
-    let brief = format!("Usage: {} FILE [options]", program);
+    let brief = format!("Usage: {} [options]", program);
     print!("{}", opts.usage(&brief));
 }
 
 
 fn main() {
-    let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
-    println!("Plumbing");
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -81,29 +78,21 @@ fn main() {
         print_usage(&program, opts);
         return;
     }
-    //    if !matches.opt_present("f") {
-    //        demonize();
-    //    }
-
+    if !matches.opt_present("f") {
+        demonize();
+    }
     println!("Starting logic");
+    let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
 
-    let mut daemon = Daemon::new("sd");
+    let d = Daemon::new(program);
 
+    sleep(Duration::from_secs(10));
 
-
-    spawn(|| {
-        let mut daemon = Daemon::new("sd");
-        let data = Arc::new(Mutex::new(daemon));
-        let data_for_thread = data.clone();
-        let mut data = data.lock().unwrap();
-
-        sig_handler(signal, data_for_thread);
-        data.start();
-
-    });
-
-//daemon.start();
-//    data.lock().unwrap().start();
+//    let shared_daemon = Arc::new(Daemon::new().start());
+//    let daemon_handler = shared_daemon.clone();
+//    spawn(move || { sig_handler(signal, daemon_handler); });
+//    let main_loop_handle = spawn(move || { shared_daemon.main_loop(); });
+//    println!("{:?}", main_loop_handle.join().unwrap());
 
 }
 
