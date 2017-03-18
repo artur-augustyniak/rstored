@@ -5,7 +5,7 @@
 //! functionality for building portable Rust software.
 
 
-use std::thread::{spawn, sleep};
+use std::thread::{spawn, sleep, JoinHandle, Thread};
 use std::time::Duration;
 
 #[derive(Debug, PartialEq)]
@@ -16,24 +16,15 @@ pub enum State {
 
 type Status = Result<State, State>;
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub struct Daemon<T: ? Sized> {
     state: State,
+    pub loop_handle: Option<JoinHandle<Thread>>,
     pub name: T //unsized must be last
 }
 
 
-fn main_loop() {
-    loop {
-        println!("DAEMON Working");
-        sleep(Duration::from_secs(2));
-    }
-}
-
 impl<T> Daemon<T> {
-
-
-
     /// Constructs a new `Daemon<T>`.
     ///
     /// # Examples
@@ -43,19 +34,25 @@ impl<T> Daemon<T> {
     /// let mut d = Daemon::new("some_name")
     /// ```
     pub fn new(id: T) -> Daemon<T> {
-        let daemon = Daemon { name: id, state: State::NotRunning };
-//        spawn(move || { main_loop(); });
-        daemon
+        Daemon { name: id, state: State::NotRunning, loop_handle: None }
     }
 
     pub fn start(&mut self) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
-                loop {
-                    println!("DAEMON Working");
-                    sleep(Duration::from_secs(5));
+                println!("DAEMON Start");
+
+                spawn(||
+                                                  {
+                    loop {
+                        println!("DAEMON Working");
+                        sleep(Duration::from_secs(5));
+                    }
                 }
+                );
+                println!("Job spawned");
+
                 Ok(State::Running)
             },
             State::Running => {

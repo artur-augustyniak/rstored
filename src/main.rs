@@ -21,25 +21,25 @@ use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 
 
-fn sig_handler(signal_chan_rx: Receiver<Signal>, mut daemon: std::sync::MutexGuard<Daemon<&str>>) {
+fn sig_handler(signal_chan_rx: Receiver<Signal>, daemon: Arc<Mutex<Daemon<String>>>) {
     loop {
         let signal = signal_chan_rx.recv();
         match signal {
             Some(Signal::INT) => {
                 println!("Handling INT");
-//                daemon.stop();
+                daemon.lock().unwrap().stop();
                 exit(0);
             },
             Some(Signal::HUP) => {
+                daemon.lock().unwrap().reload();
                 println!("Handling HUP");
-//                daemon.restart();
             },
             Some(_) => {
                 println!("Unknown SIGNAL");
             },
             None => {
                 println!("Error");
-//                daemon.stop();
+                //                daemon.stop();
                 exit(1);
             }
         }
@@ -84,15 +84,21 @@ fn main() {
     println!("Starting logic");
     let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
 
-    let d = Daemon::new(program);
+    let mut daemon = Daemon::new(program);
 
-    sleep(Duration::from_secs(10));
+    let sig_handler_ref = Arc::new(Mutex::new(daemon));
+    let main_thread_ref = sig_handler_ref.clone();
+    spawn(move || { sig_handler(signal, sig_handler_ref); });
 
-//    let shared_daemon = Arc::new(Daemon::new().start());
-//    let daemon_handler = shared_daemon.clone();
-//    spawn(move || { sig_handler(signal, daemon_handler); });
-//    let main_loop_handle = spawn(move || { shared_daemon.main_loop(); });
-//    println!("{:?}", main_loop_handle.join().unwrap());
+    //unlock fast
+    {
+        let mut daemon = main_thread_ref.lock().unwrap();
+        daemon.start();
+    }
+    sleep(Duration::from_secs(30));
+//    loop {
+//        println!("DAEMON Working");
+//    }
 
 }
 
