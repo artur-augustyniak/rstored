@@ -4,9 +4,10 @@
 //! Lorem Ipsum
 //! functionality for building portable Rust software.
 
-
-use std::thread::{spawn, sleep, JoinHandle, Thread};
+use std::thread::{spawn, sleep};
 use std::time::Duration;
+use std::fmt::{Display, Formatter};
+use std::fmt::Result as FmtResult;
 
 #[derive(Debug, PartialEq)]
 pub enum State {
@@ -14,17 +15,21 @@ pub enum State {
     NotRunning,
 }
 
-type Status = Result<State, State>;
+pub type Status = Result<State, State>;
 
-//#[derive(Debug)]
+#[derive(Debug)]
 pub struct Daemon<T: ? Sized> {
     state: State,
-    pub loop_handle: Option<JoinHandle<Thread>>,
-    pub name: T //unsized must be last
+    name: T //unsized must be last
 }
 
+impl<T> Display for Daemon<T> where T: Display {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.name)
+    }
+}
 
-impl<T> Daemon<T> {
+impl<T> Daemon<T> where T: Display {
     /// Constructs a new `Daemon<T>`.
     ///
     /// # Examples
@@ -34,28 +39,26 @@ impl<T> Daemon<T> {
     /// let mut d = Daemon::new("some_name")
     /// ```
     pub fn new(id: T) -> Daemon<T> {
-        Daemon { name: id, state: State::NotRunning, loop_handle: None }
+        Daemon { name: id, state: State::NotRunning }
     }
 
     pub fn start(&mut self) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
-                println!("DAEMON Start");
-
-                spawn(||
-                                                  {
+                println!("[-] daemon name {}", self.name);
+                println!("[-] spawning worker thread");
+                spawn(|| {
                     loop {
-                        println!("DAEMON Working");
+                        println!("[+] working...");
                         sleep(Duration::from_secs(5));
                     }
-                }
-                );
-                println!("Job spawned");
-
+                });
+                println!("[-] worker thread ready");
                 Ok(State::Running)
             },
             State::Running => {
+                println!("[-] {} already running", self.name);
                 Err(State::Running)
             }
         }
@@ -65,7 +68,7 @@ impl<T> Daemon<T> {
         match self.state {
             State::Running => {
                 self.state = State::NotRunning;
-                println!("DAEMON Stop");
+                println!("[-] {} will stop", self.name);
                 Ok(State::NotRunning)
             },
             State::NotRunning => {
@@ -77,7 +80,7 @@ impl<T> Daemon<T> {
     pub fn reload(&mut self) -> Status {
         match self.state {
             State::Running => {
-                println!("DAEMON Reload");
+                println!("[-] {} reloading", self.name);
                 Ok(State::Running)
             },
             State::NotRunning => {

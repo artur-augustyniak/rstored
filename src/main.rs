@@ -1,46 +1,46 @@
 mod base;
 
-use base::Daemon;
-
 #[macro_use]
 extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
 
-
+use base::{Daemon, Status};
 use getopts::Options;
 use std::env;
+use std::sync::mpsc::{self, Sender};
 use std::process::{exit};
 use std::sync::{Arc, Mutex};
-
-use std::thread::{spawn, sleep};
-use std::time::Duration;
+use std::thread::{spawn};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 
+static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 
-fn sig_handler(signal_chan_rx: Receiver<Signal>, daemon: Arc<Mutex<Daemon<String>>>) {
+fn sig_handler(
+    signal_chan_rx: Receiver<Signal>,
+    daemon: Arc<Mutex<Daemon<String>>>,
+    finish_chan_tx: Sender<Status>
+) {
     loop {
         let signal = signal_chan_rx.recv();
         match signal {
             Some(Signal::INT) => {
-                println!("Handling INT");
-                daemon.lock().unwrap().stop();
-                exit(0);
+                let status = daemon.lock().unwrap().stop();
+                let notification_status = finish_chan_tx.send(status);
+                println!("[-] finish msg send status {:?}", notification_status);
             },
             Some(Signal::HUP) => {
-                daemon.lock().unwrap().reload();
-                println!("Handling HUP");
+                let status = daemon.lock().unwrap().reload();
+                println!("[-] hup reload status {:?}", status);
             },
             Some(_) => {
-                println!("Unknown SIGNAL");
+                ();
             },
             None => {
-                println!("Error");
-                //                daemon.stop();
-                exit(1);
+                exit(SIGNALING_ERROR_EXIT_CODE);
             }
         }
     }
@@ -66,10 +66,10 @@ fn print_usage(program: &str, opts: Options) {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
-
     let mut opts = Options::new();
-    opts.optflag("f", "foreground", "do not demonize");
+    opts.optflag("d", "demonize", "demonize in old unix fashion");
     opts.optflag("h", "help", "print this message");
+
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => { m }
         Err(f) => { panic!(f.to_string()) }
@@ -78,28 +78,25 @@ fn main() {
         print_usage(&program, opts);
         return;
     }
-    if !matches.opt_present("f") {
+    if matches.opt_present("d") {
         demonize();
     }
-    println!("Starting logic");
+
+
     let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
-
-    let mut daemon = Daemon::new(program);
-
+    let daemon = Daemon::new(program);
     let sig_handler_ref = Arc::new(Mutex::new(daemon));
     let main_thread_ref = sig_handler_ref.clone();
-    spawn(move || { sig_handler(signal, sig_handler_ref); });
-
-    //unlock fast
+    let (end_signal_tx, end_signal_rx) = mpsc::channel();
+    spawn(move || { sig_handler(signal, sig_handler_ref, end_signal_tx); });
+    //force mutex unlock
     {
         let mut daemon = main_thread_ref.lock().unwrap();
-        daemon.start();
+        let start_status = daemon.start();
+        println!("[-] daemon start status {:?}", start_status);
     }
-    sleep(Duration::from_secs(30));
-//    loop {
-//        println!("DAEMON Working");
-//    }
-
+    let finish_result = end_signal_rx.recv();
+    println!("[-] finishing in {:?} status", finish_result.unwrap());
 }
 
 
