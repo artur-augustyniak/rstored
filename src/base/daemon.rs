@@ -11,6 +11,7 @@ use std::fmt::Result as FmtResult;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Sender};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -50,7 +51,7 @@ impl<T> Daemon<T> where T: Display {
         Daemon { name: id, should_stop: ss, finished: fin, state: State::NotRunning }
     }
 
-    pub fn start(&mut self, op: Box<Operation>) -> Status {
+    pub fn start(&mut self, op: Box<Operation>, finish_chan_tx: Sender<Status>) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
@@ -66,9 +67,11 @@ impl<T> Daemon<T> where T: Display {
                         op.exec();
                         sleep(Duration::from_secs(1));
                     }
-
                     finished.store(true, Ordering::Relaxed);
+                    let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
+                    println!("[-] finish msg send status {:?}", notification_status);
                     println!("[-] worker thread finished");
+
                 });
                 println!("[-] worker thread ready");
                 Ok(State::Running)

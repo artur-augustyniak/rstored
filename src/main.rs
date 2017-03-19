@@ -5,14 +5,15 @@ extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
-use std::time::Duration;
-use base::{Daemon, Status, DebugPrint, Ls};
+
+
+use base::{Daemon, DebugPrint};
 use getopts::Options;
 use std::env;
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc::{self};
 use std::process::{exit};
 use std::sync::{Arc, Mutex};
-use std::thread::{spawn, sleep};
+use std::thread::{spawn};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
@@ -21,17 +22,14 @@ static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 
 fn sig_handler(
     signal_chan_rx: Receiver<Signal>,
-    daemon: Arc<Mutex<Daemon<String>>>,
-    finish_chan_tx: Sender<Status>
+    daemon: Arc<Mutex<Daemon<String>>>
 ) {
     loop {
         let signal = signal_chan_rx.recv();
         match signal {
             Some(Signal::INT) => {
                 let status = daemon.lock().unwrap().stop();
-                sleep(Duration::from_secs(5));
-                let notification_status = finish_chan_tx.send(status);
-                println!("[-] finish msg send status {:?}", notification_status);
+                println!("[-] end daemon status {:?}", status);
             },
             Some(Signal::HUP) => {
                 let status = daemon.lock().unwrap().reload();
@@ -89,14 +87,14 @@ fn main() {
     let sig_handler_ref = Arc::new(Mutex::new(daemon));
     let main_thread_ref = sig_handler_ref.clone();
     let (end_signal_tx, end_signal_rx) = mpsc::channel();
-    spawn(move || { sig_handler(signal, sig_handler_ref, end_signal_tx); });
+    spawn(move || { sig_handler(signal, sig_handler_ref); });
 
 
     //force mutex unlock
     {
         let op = Box::new(DebugPrint);
         let mut daemon = main_thread_ref.lock().unwrap();
-        let start_status = daemon.start(op);
+        let start_status = daemon.start(op, end_signal_tx);
         println!("[-] daemon start status {:?}", start_status);
     }
     let finish_result = end_signal_rx.recv();
