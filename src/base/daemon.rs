@@ -71,7 +71,6 @@ impl<T> Daemon<T> where T: Display {
                     let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
                     println!("[-] finish msg send status {:?}", notification_status);
                     println!("[-] worker thread finished");
-
                 });
                 println!("[-] worker thread ready");
                 Ok(State::Running)
@@ -120,16 +119,26 @@ impl<T> Daemon<T> where T: Display {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc::{self};
+
+    #[derive(Debug)]
+    pub struct OperationMock;
+
+
+    impl Operation for OperationMock {
+        fn exec(&self) -> () {}
+    }
+
 
     #[test]
     fn can_start_when_not_running() {
         let mut daemon = Daemon::new("some_name");
         let expected = Ok(State::Running);
-        let op = Box::new(DebugPrint);
-        let actual = daemon.start(op);
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        let actual = daemon.start(op, end_signal_tx);
         assert_eq!(expected, actual);
     }
-
 
     #[test]
     fn cant_reload_when_not_running() {
@@ -138,7 +147,6 @@ mod tests {
         let actual = daemon.reload();
         assert_eq!(expected, actual);
     }
-
 
     #[test]
     fn cant_stop_when_not_running() {
@@ -151,7 +159,9 @@ mod tests {
     #[test]
     fn can_stop_when_already_running() {
         let mut daemon = Daemon::new("some_name");
-        match daemon.start() {
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        match daemon.start(op, end_signal_tx) {
             Err(_) => {
                 panic!("Error, can't run daemon for unknown reason");
             },
@@ -165,7 +175,9 @@ mod tests {
     #[test]
     fn can_reload_when_already_running() {
         let mut daemon = Daemon::new("some_name");
-        match daemon.start() {
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        match daemon.start(op, end_signal_tx) {
             Err(_) => {
                 panic!("Error, can't run daemon for unknown reason");
             },
@@ -180,7 +192,9 @@ mod tests {
     #[test]
     fn can_reload_when_already_reloaded() {
         let mut daemon = Daemon::new("some_name");
-        match daemon.start() {
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        match daemon.start(op, end_signal_tx) {
             Err(_) => {
                 panic!("Error, can't run daemon for unknown reason");
             },
@@ -198,21 +212,27 @@ mod tests {
     #[test]
     fn cant_start_when_already_running() {
         let mut daemon = Daemon::new("some_name");
-        match daemon.start() {
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        match daemon.start(op, end_signal_tx) {
             Err(_) => {
                 panic!("Error, can't run daemon for unknown reason");
             },
             _ => ()
         }
         let expected = Err(State::Running);
-        let actual = daemon.start();
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        let actual = daemon.start(op, end_signal_tx);
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn cant_start_when_already_reloaded() {
         let mut daemon = Daemon::new("some_name");
-        match daemon.start() {
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        match daemon.start(op, end_signal_tx) {
             Err(_) => {
                 panic!("Error, can't run daemon for unknown reason");
             },
@@ -223,7 +243,9 @@ mod tests {
         assert_eq!(expected, actual);
 
         let expected = Err(State::Running);
-        let actual = daemon.start();
+        let op = Box::new(OperationMock);
+        let (end_signal_tx, _) = mpsc::channel();
+        let actual = daemon.start(op, end_signal_tx);
         assert_eq!(expected, actual);
     }
 }
