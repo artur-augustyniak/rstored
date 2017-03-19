@@ -6,7 +6,7 @@ extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
 
-use base::{Daemon, Status};
+use base::{Daemon, Status, DebugPrint, Ls};
 use getopts::Options;
 use std::env;
 use std::sync::mpsc::{self, Sender};
@@ -64,6 +64,7 @@ fn print_usage(program: &str, opts: Options) {
 
 
 fn main() {
+
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
     let mut opts = Options::new();
@@ -89,10 +90,15 @@ fn main() {
     let main_thread_ref = sig_handler_ref.clone();
     let (end_signal_tx, end_signal_rx) = mpsc::channel();
     spawn(move || { sig_handler(signal, sig_handler_ref, end_signal_tx); });
+
+
+
+
+    let op = Box::new(Ls);
     //force mutex unlock
     {
         let mut daemon = main_thread_ref.lock().unwrap();
-        let start_status = daemon.start();
+        let start_status = daemon.start(op);
         println!("[-] daemon start status {:?}", start_status);
     }
     let finish_result = end_signal_rx.recv();

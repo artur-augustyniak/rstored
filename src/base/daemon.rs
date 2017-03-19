@@ -4,12 +4,13 @@
 //! Lorem Ipsum
 //! functionality for building portable Rust software.
 
+use base::{Operation};
 use std::thread::{spawn, sleep};
 use std::time::Duration;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum State {
     Running,
     NotRunning,
@@ -42,15 +43,15 @@ impl<T> Daemon<T> where T: Display {
         Daemon { name: id, state: State::NotRunning }
     }
 
-    pub fn start(&mut self) -> Status {
+    pub fn start(&mut self, op: Box<Operation>) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
                 println!("[-] daemon name {}", self.name);
                 println!("[-] spawning worker thread");
-                spawn(|| {
+                spawn(move || {
                     loop {
-                        println!("[+] working...");
+                        op.exec();
                         sleep(Duration::from_secs(5));
                     }
                 });
