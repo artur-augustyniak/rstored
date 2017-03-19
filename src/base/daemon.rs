@@ -6,9 +6,12 @@
 
 use base::{Operation};
 use std::thread::{spawn, sleep};
-use std::time::Duration;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
+use std::time::Duration;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -21,6 +24,8 @@ pub type Status = Result<State, State>;
 #[derive(Debug)]
 pub struct Daemon<T: ? Sized> {
     state: State,
+    should_stop: Arc<AtomicBool>,
+    finished: Arc<AtomicBool>,
     name: T //unsized must be last
 }
 
@@ -40,7 +45,9 @@ impl<T> Daemon<T> where T: Display {
     /// let mut d = Daemon::new("some_name")
     /// ```
     pub fn new(id: T) -> Daemon<T> {
-        Daemon { name: id, state: State::NotRunning }
+        let ss = Arc::new(AtomicBool::new(false));
+        let fin = Arc::new(AtomicBool::new(false));
+        Daemon { name: id, should_stop: ss, finished: fin, state: State::NotRunning }
     }
 
     pub fn start(&mut self, op: Box<Operation>) -> Status {
@@ -49,11 +56,19 @@ impl<T> Daemon<T> where T: Display {
                 self.state = State::Running;
                 println!("[-] daemon name {}", self.name);
                 println!("[-] spawning worker thread");
+                let stop = self.should_stop.clone();
+                let finished = self.finished.clone();
                 spawn(move || {
                     loop {
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
                         op.exec();
-                        sleep(Duration::from_secs(5));
+                        sleep(Duration::from_secs(1));
                     }
+
+                    finished.store(true, Ordering::Relaxed);
+                    println!("[-] worker thread finished");
                 });
                 println!("[-] worker thread ready");
                 Ok(State::Running)
@@ -70,6 +85,13 @@ impl<T> Daemon<T> where T: Display {
             State::Running => {
                 self.state = State::NotRunning;
                 println!("[-] {} will stop", self.name);
+                let stop = self.should_stop.clone();
+                let finished = self.finished.clone();
+                stop.store(true, Ordering::Relaxed);
+                while !finished.load(Ordering::Relaxed) {
+                    println!("[-] worker thread closing");
+                    sleep(Duration::from_millis(300));
+                }
                 Ok(State::NotRunning)
             },
             State::NotRunning => {
@@ -100,7 +122,8 @@ mod tests {
     fn can_start_when_not_running() {
         let mut daemon = Daemon::new("some_name");
         let expected = Ok(State::Running);
-        let actual = daemon.start();
+        let op = Box::new(DebugPrint);
+        let actual = daemon.start(op);
         assert_eq!(expected, actual);
     }
 

@@ -5,14 +5,14 @@ extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
-
+use std::time::Duration;
 use base::{Daemon, Status, DebugPrint, Ls};
 use getopts::Options;
 use std::env;
 use std::sync::mpsc::{self, Sender};
 use std::process::{exit};
 use std::sync::{Arc, Mutex};
-use std::thread::{spawn};
+use std::thread::{spawn, sleep};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
@@ -29,6 +29,7 @@ fn sig_handler(
         match signal {
             Some(Signal::INT) => {
                 let status = daemon.lock().unwrap().stop();
+                sleep(Duration::from_secs(5));
                 let notification_status = finish_chan_tx.send(status);
                 println!("[-] finish msg send status {:?}", notification_status);
             },
@@ -64,7 +65,6 @@ fn print_usage(program: &str, opts: Options) {
 
 
 fn main() {
-
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
     let mut opts = Options::new();
@@ -92,11 +92,9 @@ fn main() {
     spawn(move || { sig_handler(signal, sig_handler_ref, end_signal_tx); });
 
 
-
-
-    let op = Box::new(Ls);
     //force mutex unlock
     {
+        let op = Box::new(DebugPrint);
         let mut daemon = main_thread_ref.lock().unwrap();
         let start_status = daemon.start(op);
         println!("[-] daemon start status {:?}", start_status);
