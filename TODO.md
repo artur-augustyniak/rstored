@@ -1,4 +1,5 @@
 #TODO
+- fix tests
 - config file, na początek mogą być pliki do przekierowania z demonize lub duration
 - co z stdin/out (przekierowanie demonize)
 - jakiś logger (coś jak log4j)?
