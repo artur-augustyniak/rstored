@@ -6,6 +6,7 @@ dependencies = [
  "chan-signal 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "iron 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustless 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",

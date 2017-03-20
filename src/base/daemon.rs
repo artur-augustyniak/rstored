@@ -4,6 +4,7 @@
 //! Lorem Ipsum
 //! functionality for building portable Rust software.
 
+
 use base::{Operation};
 use std::thread::{spawn, sleep};
 use std::fmt::{Display, Formatter};
@@ -51,12 +52,62 @@ impl<T> Daemon<T> where T: Display {
         Daemon { name: id, should_stop: ss, finished: fin, state: State::NotRunning }
     }
 
-    pub fn start(&mut self, op: Box<Operation>, finish_chan_tx: Sender<Status>) -> Status {
+    pub fn spawn_spinning_helper(&mut self, spinnable: Box<Operation>, sec_interval: u64) -> Status {
+        match self.state {
+            State::Running => {
+                //Helper spinning worker
+                // no resource acquisition allowed
+                let stop = self.should_stop.clone();
+                spawn(move || {
+                    loop {
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        spinnable.exec();
+                        sleep(Duration::from_secs(sec_interval));
+                    }
+                });
+                Ok(State::Running)
+            },
+            State::NotRunning => {
+                println!("[-] {} not running", self.name);
+                Err(State::NotRunning)
+            }
+        }
+    }
+
+
+    pub fn spawn_one_shot_helper(&mut self, operation: Box<Operation>) -> Status {
+        match self.state {
+            State::Running => {
+                //Helper one shot worker no resource acquisition allowed no execution
+                spawn(move || {
+                    operation.exec();
+                    println!("[-] helper one-shot thread finished");
+                });
+                Ok(State::Running)
+            },
+            State::NotRunning => {
+                println!("[-] {} not running", self.name);
+                Err(State::NotRunning)
+            }
+        }
+    }
+
+    pub fn start(
+        &mut self,
+        synced_spinnable_op: Box<Operation>,
+        finish_chan_tx: Sender<Status>,
+        sec_interval: u64
+    ) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
                 println!("[-] daemon name {}", self.name);
                 println!("[-] spawning worker thread");
+
+                //Main spinning worker resource acquisition allowed
+                // only one such thread allowed (synchronizing graceful pool close)
                 let stop = self.should_stop.clone();
                 let finished = self.finished.clone();
                 spawn(move || {
@@ -64,15 +115,17 @@ impl<T> Daemon<T> where T: Display {
                         if stop.load(Ordering::Relaxed) {
                             break;
                         }
-                        op.exec();
-                        sleep(Duration::from_secs(1));
+                        synced_spinnable_op.exec();
+                        sleep(Duration::from_secs(sec_interval));
                     }
                     finished.store(true, Ordering::Relaxed);
+                    sleep(Duration::from_secs(10));
                     let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
                     println!("[-] finish msg send status {:?}", notification_status);
-                    println!("[-] worker thread finished");
+                    println!("[-] main spinning worker finished");
                 });
-                println!("[-] worker thread ready");
+
+                println!("[-] worker threads ready");
                 Ok(State::Running)
             },
             State::Running => {
@@ -137,7 +190,7 @@ mod tests {
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         let actual = daemon.start(op, end_signal_tx);
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -145,7 +198,7 @@ mod tests {
         let mut daemon = Daemon::new("some_name");
         let expected = Err(State::NotRunning);
         let actual = daemon.reload();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -153,7 +206,7 @@ mod tests {
         let mut daemon = Daemon::new("some_name");
         let expected = Err(State::NotRunning);
         let actual = daemon.stop();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -169,7 +222,7 @@ mod tests {
         }
         let expected = Ok(State::NotRunning);
         let actual = daemon.stop();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -185,7 +238,7 @@ mod tests {
         }
         let expected = Ok(State::Running);
         let actual = daemon.reload();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
 
@@ -202,11 +255,11 @@ mod tests {
         }
         let expected = Ok(State::Running);
         let actual = daemon.reload();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
 
         let expected = Ok(State::Running);
         let actual = daemon.reload();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -224,7 +277,7 @@ mod tests {
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         let actual = daemon.start(op, end_signal_tx);
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 
     #[test]
@@ -240,12 +293,12 @@ mod tests {
         }
         let expected = Ok(State::Running);
         let actual = daemon.reload();
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
 
         let expected = Err(State::Running);
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         let actual = daemon.start(op, end_signal_tx);
-        assert_eq!(expected, actual);
+        assert_eq! (expected, actual);
     }
 }

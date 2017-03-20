@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
 
 [dependencies]
+libc = "0.2.0"
 rustless = "0.10.0"
 url = "1.4.0"
 iron = "0.4.0"

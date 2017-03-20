@@ -7,7 +7,7 @@ extern crate unix_daemonize;
 extern crate getopts;
 
 
-use base::{Daemon, DebugPrint};
+use base::{Daemon, DebugPrint, Ls, FakeSpinner};
 use getopts::Options;
 use std::env;
 use std::sync::mpsc::{self};
@@ -94,8 +94,18 @@ fn main() {
     {
         let op = Box::new(DebugPrint);
         let mut daemon = main_thread_ref.lock().unwrap();
-        let start_status = daemon.start(op, end_signal_tx);
+        let start_status = daemon.start(op, end_signal_tx, 7);
+        let op = Box::new(Ls);
+        let spawn_status_oneshot =  daemon.spawn_one_shot_helper(op);
+        let op = Box::new(FakeSpinner);
+        let spawn_status_spinner1 =  daemon.spawn_spinning_helper(op, 3);
+        let op2 = Box::new(FakeSpinner);
+        let spawn_status_spinner2 =  daemon.spawn_spinning_helper(op2, 2);
+
         println!("[-] daemon start status {:?}", start_status);
+        println!("[-] one shot start status {:?}", spawn_status_oneshot);
+        println!("[-] spinner start status1 {:?}", spawn_status_spinner1);
+        println!("[-] spinner start status2 {:?}", spawn_status_spinner2);
     }
     let finish_result = end_signal_rx.recv();
     println!("[-] finishing in {:?} status", finish_result.unwrap());
