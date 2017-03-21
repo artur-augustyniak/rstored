@@ -1,8 +1,6 @@
 #TODO
-- fix tests
-- config file, na początek mogą być pliki do przekierowania z demonize lub duration
-- co z stdin/out (przekierowanie demonize)
-- jakiś logger (coś jak log4j)?
+ - co z stdin/out (przekierowanie demonize) - jakiś logger (coś jak log4j)?
+- config file, na początek mogą być pliki do przekierowania z demonize lub duration sleep timeout param z pliku konfiguracyjnego i reload
 - dynamiczne ładowanie pluginów `Operation`
 
 Podczas startu lub restartu demona

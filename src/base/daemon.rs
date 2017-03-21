@@ -25,6 +25,7 @@ pub type Status = Result<State, State>;
 
 #[derive(Debug)]
 pub struct Daemon<T: ? Sized> {
+    cpu_anti_hog_millis: u64,
     state: State,
     should_stop: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
@@ -46,59 +47,22 @@ impl<T> Daemon<T> where T: Display {
     /// use base::Daemon;
     /// let mut d = Daemon::new("some_name")
     /// ```
-    pub fn new(id: T) -> Daemon<T> {
+    pub fn new(id: T, anti_hog_millis: u64) -> Daemon<T> {
         let ss = Arc::new(AtomicBool::new(false));
         let fin = Arc::new(AtomicBool::new(false));
-        Daemon { name: id, should_stop: ss, finished: fin, state: State::NotRunning }
-    }
-
-    pub fn spawn_spinning_helper(&mut self, spinnable: Box<Operation>, sec_interval: u64) -> Status {
-        match self.state {
-            State::Running => {
-                //Helper spinning worker
-                // no resource acquisition allowed
-                let stop = self.should_stop.clone();
-                spawn(move || {
-                    loop {
-                        if stop.load(Ordering::Relaxed) {
-                            break;
-                        }
-                        spinnable.exec();
-                        sleep(Duration::from_secs(sec_interval));
-                    }
-                });
-                Ok(State::Running)
-            },
-            State::NotRunning => {
-                println!("[-] {} not running", self.name);
-                Err(State::NotRunning)
-            }
-        }
-    }
-
-
-    pub fn spawn_one_shot_helper(&mut self, operation: Box<Operation>) -> Status {
-        match self.state {
-            State::Running => {
-                //Helper one shot worker no resource acquisition allowed no execution
-                spawn(move || {
-                    operation.exec();
-                    println!("[-] helper one-shot thread finished");
-                });
-                Ok(State::Running)
-            },
-            State::NotRunning => {
-                println!("[-] {} not running", self.name);
-                Err(State::NotRunning)
-            }
+        Daemon {
+            name: id,
+            cpu_anti_hog_millis: anti_hog_millis,
+            should_stop: ss,
+            finished: fin,
+            state: State::NotRunning
         }
     }
 
     pub fn start(
         &mut self,
         synced_spinnable_op: Box<Operation>,
-        finish_chan_tx: Sender<Status>,
-        sec_interval: u64
+        finish_chan_tx: Sender<Status>
     ) -> Status {
         match self.state {
             State::NotRunning => {
@@ -110,16 +74,16 @@ impl<T> Daemon<T> where T: Display {
                 // only one such thread allowed (synchronizing graceful pool close)
                 let stop = self.should_stop.clone();
                 let finished = self.finished.clone();
+                let anti_hog_sleep = self.cpu_anti_hog_millis;
                 spawn(move || {
                     loop {
                         if stop.load(Ordering::Relaxed) {
                             break;
                         }
                         synced_spinnable_op.exec();
-                        sleep(Duration::from_secs(sec_interval));
+                        sleep(Duration::from_millis(anti_hog_sleep));
                     }
                     finished.store(true, Ordering::Relaxed);
-                    sleep(Duration::from_secs(10));
                     let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
                     println!("[-] finish msg send status {:?}", notification_status);
                     println!("[-] main spinning worker finished");
@@ -145,7 +109,7 @@ impl<T> Daemon<T> where T: Display {
                 stop.store(true, Ordering::Relaxed);
                 while !finished.load(Ordering::Relaxed) {
                     println!("[-] worker thread closing");
-                    sleep(Duration::from_millis(300));
+                    sleep(Duration::from_millis(self.cpu_anti_hog_millis));
                 }
                 Ok(State::NotRunning)
             },
@@ -166,6 +130,55 @@ impl<T> Daemon<T> where T: Display {
             }
         }
     }
+
+    pub fn spawn_spinning_helper(
+        &mut self,
+        spinnable: Box<Operation>
+    ) -> Status {
+        match self.state {
+            State::Running => {
+                //Helper spinning worker
+                // no resource acquisition allowed
+                let stop = self.should_stop.clone();
+                let anti_hog_sleep = self.cpu_anti_hog_millis;
+                spawn(move || {
+                    loop {
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        spinnable.exec();
+                        sleep(Duration::from_millis(anti_hog_sleep));
+                    }
+                });
+                Ok(State::Running)
+            },
+            State::NotRunning => {
+                println!("[-] {} not running", self.name);
+                Err(State::NotRunning)
+            }
+        }
+    }
+
+
+    pub fn spawn_one_shot_helper(
+        &mut self,
+        operation: Box<Operation>
+    ) -> Status {
+        match self.state {
+            State::Running => {
+                //Helper one shot worker no resource acquisition allowed no execution
+                spawn(move || {
+                    operation.exec();
+                    println!("[-] helper one-shot thread finished");
+                });
+                Ok(State::Running)
+            },
+            State::NotRunning => {
+                println!("[-] {} not running", self.name);
+                Err(State::NotRunning)
+            }
+        }
+    }
 }
 
 
@@ -173,6 +186,8 @@ impl<T> Daemon<T> where T: Display {
 mod tests {
     use super::*;
     use std::sync::mpsc::{self};
+
+    static TEST_CPU_ANTI_HOG_MILLIS: u64 = 0x0;
 
     #[derive(Debug)]
     pub struct OperationMock;
@@ -182,10 +197,12 @@ mod tests {
         fn exec(&self) -> () {}
     }
 
-
     #[test]
     fn can_start_when_not_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let expected = Ok(State::Running);
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
@@ -195,7 +212,10 @@ mod tests {
 
     #[test]
     fn cant_reload_when_not_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let expected = Err(State::NotRunning);
         let actual = daemon.reload();
         assert_eq! (expected, actual);
@@ -203,7 +223,10 @@ mod tests {
 
     #[test]
     fn cant_stop_when_not_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let expected = Err(State::NotRunning);
         let actual = daemon.stop();
         assert_eq! (expected, actual);
@@ -211,7 +234,10 @@ mod tests {
 
     #[test]
     fn can_stop_when_already_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         match daemon.start(op, end_signal_tx) {
@@ -227,7 +253,10 @@ mod tests {
 
     #[test]
     fn can_reload_when_already_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         match daemon.start(op, end_signal_tx) {
@@ -244,7 +273,10 @@ mod tests {
 
     #[test]
     fn can_reload_when_already_reloaded() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         match daemon.start(op, end_signal_tx) {
@@ -264,7 +296,10 @@ mod tests {
 
     #[test]
     fn cant_start_when_already_running() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         match daemon.start(op, end_signal_tx) {
@@ -282,7 +317,10 @@ mod tests {
 
     #[test]
     fn cant_start_when_already_reloaded() {
-        let mut daemon = Daemon::new("some_name");
+        let mut daemon = Daemon::new(
+            "some_name",
+            TEST_CPU_ANTI_HOG_MILLIS
+        );
         let op = Box::new(OperationMock);
         let (end_signal_tx, _) = mpsc::channel();
         match daemon.start(op, end_signal_tx) {

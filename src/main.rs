@@ -19,6 +19,7 @@ use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 
 static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
+static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 5;
 
 fn sig_handler(
     signal_chan_rx: Receiver<Signal>,
@@ -83,7 +84,7 @@ fn main() {
 
 
     let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
-    let daemon = Daemon::new(program);
+    let daemon = Daemon::new(program, CPU_ANTI_HOG_MILLIS_OFFSET);
     let sig_handler_ref = Arc::new(Mutex::new(daemon));
     let main_thread_ref = sig_handler_ref.clone();
     let (end_signal_tx, end_signal_rx) = mpsc::channel();
@@ -94,13 +95,13 @@ fn main() {
     {
         let op = Box::new(DebugPrint);
         let mut daemon = main_thread_ref.lock().unwrap();
-        let start_status = daemon.start(op, end_signal_tx, 7);
+        let start_status = daemon.start(op, end_signal_tx);
         let op = Box::new(Ls);
         let spawn_status_oneshot =  daemon.spawn_one_shot_helper(op);
         let op = Box::new(FakeSpinner);
-        let spawn_status_spinner1 =  daemon.spawn_spinning_helper(op, 3);
+        let spawn_status_spinner1 =  daemon.spawn_spinning_helper(op);
         let op2 = Box::new(FakeSpinner);
-        let spawn_status_spinner2 =  daemon.spawn_spinning_helper(op2, 2);
+        let spawn_status_spinner2 =  daemon.spawn_spinning_helper(op2);
 
         println!("[-] daemon start status {:?}", start_status);
         println!("[-] one shot start status {:?}", spawn_status_oneshot);
