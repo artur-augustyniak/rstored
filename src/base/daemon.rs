@@ -4,7 +4,9 @@
 //! Lorem Ipsum
 //! functionality for building portable Rust software.
 
+extern crate syslog;
 
+use ::REAL_SYSLOG as REAL_SYSLOG;
 use base::{Operation};
 use std::thread::{spawn, sleep};
 use std::fmt::{Display, Formatter};
@@ -13,7 +15,7 @@ use std::time::Duration;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Sender};
-
+use syslog::{Facility, Severity};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -67,8 +69,11 @@ impl<T> Daemon<T> where T: Display {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
-                println!("[-] daemon name {}", self.name);
-                println!("[-] spawning worker thread");
+
+                let msg = format!("daemon name {}", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                let msg = format!("spawning worker thread");
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
 
                 //Main spinning worker resource acquisition allowed
                 // only one such thread allowed (synchronizing graceful pool close)
@@ -85,15 +90,20 @@ impl<T> Daemon<T> where T: Display {
                     }
                     finished.store(true, Ordering::Relaxed);
                     let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
-                    println!("[-] finish msg send status {:?}", notification_status);
-                    println!("[-] main spinning worker finished");
+                    let msg = format!("finish msg send status {:?}", notification_status);
+                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                    let msg = format!("main spinning worker finished");
+                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 });
 
-                println!("[-] worker threads ready");
+                let msg = format!("worker threads ready");
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+
                 Ok(State::Running)
             },
             State::Running => {
-                println!("[-] {} already running", self.name);
+                let msg = format!("{} already running", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 Err(State::Running)
             }
         }
@@ -103,12 +113,14 @@ impl<T> Daemon<T> where T: Display {
         match self.state {
             State::Running => {
                 self.state = State::NotRunning;
-                println!("[-] {} will stop", self.name);
+                let msg = format!("{} will stop", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 let stop = self.should_stop.clone();
                 let finished = self.finished.clone();
                 stop.store(true, Ordering::Relaxed);
                 while !finished.load(Ordering::Relaxed) {
-                    println!("[-] worker thread closing");
+                    let msg = format!("worker thread closing");
+                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                     sleep(Duration::from_millis(self.cpu_anti_hog_millis));
                 }
                 Ok(State::NotRunning)
@@ -122,7 +134,8 @@ impl<T> Daemon<T> where T: Display {
     pub fn reload(&mut self) -> Status {
         match self.state {
             State::Running => {
-                println!("[-] {} reloading", self.name);
+                let msg = format!("{} reloading", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 Ok(State::Running)
             },
             State::NotRunning => {
@@ -153,7 +166,8 @@ impl<T> Daemon<T> where T: Display {
                 Ok(State::Running)
             },
             State::NotRunning => {
-                println!("[-] {} not running", self.name);
+                let msg = format!("{} not running", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 Err(State::NotRunning)
             }
         }
@@ -169,12 +183,14 @@ impl<T> Daemon<T> where T: Display {
                 //Helper one shot worker no resource acquisition allowed no execution
                 spawn(move || {
                     operation.exec();
-                    println!("[-] helper one-shot thread finished");
+                    let msg = format!("helper one-shot thread finished");
+                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 });
                 Ok(State::Running)
             },
             State::NotRunning => {
-                println!("[-] {} not running", self.name);
+                let msg = format!("{} not running", self.name);
+                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 Err(State::NotRunning)
             }
         }

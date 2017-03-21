@@ -1,7 +1,7 @@
 #TODO
- - co z stdin/out (przekierowanie demonize) - jakiś logger (coś jak log4j)?
-- config file, na początek mogą być pliki do przekierowania z demonize lub duration sleep timeout param z pliku konfiguracyjnego i reload
+ - config file, na początek mogą być pliki do przekierowania z demonize lub duration sleep timeout param z pliku konfiguracyjnego i reload
 - dynamiczne ładowanie pluginów `Operation`
+- porządek z importami ::base
 
 Podczas startu lub restartu demona
 - tworzone są wbudowane pluginy df i mem oraz ładowane dodatkowe pluginy probe’y z katalogu zawartego w konfiguracji
