@@ -46,6 +46,6 @@ pub struct FakeSpinner;
 impl Operation for FakeSpinner {
     fn exec(&self) -> () {
         let msg = format!("Thread id {:?} {:?} working... ", get_thread_id(), self);
-        log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_DEBUG, &msg);
+        log!(&REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_DEBUG, &msg);
     }
 }
