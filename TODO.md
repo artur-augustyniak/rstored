@@ -1,5 +1,6 @@
 #TODO
-- rekonstrukcja log macro i użycie opcji syslog - output w zależności od tego czy użyto demonize //kolorki w stdout
+- rekonstrukcja głównej pętli ze względu na restart
+- output w zależności od tego czy użyto demonize //kolorki w stdout kiedy stdout severities odpowiadające systemd <4>
 - handle unwrap i poprawki kodu wg err reporting rustlang
 - dynamiczne ładowanie pluginów `Operation` natywne i w innych językach
 - porządek z importami ::base

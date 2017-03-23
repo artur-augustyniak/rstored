@@ -1,4 +1,3 @@
-#[macro_use]
 mod base;
 
 #[macro_use]
@@ -28,8 +27,50 @@ static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 100;
 static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
 
-pub static REAL_SYSLOG: bool = false;
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum LogDest {
+    StdOut,
+    Syslog,
+}
+
+#[derive(Debug)]
+pub struct Logger {
+    dest: LogDest
+}
+
+
+impl Logger {
+    pub fn new(dest: LogDest) -> Logger {
+        Logger { dest: dest }
+    }
+
+    fn log(&self, msg: &str) -> () {
+        match self.dest {
+            LogDest::StdOut => {
+                println!("LOGGER STDOUT {}", msg);
+            },
+            LogDest::Syslog => {
+                println!("LOGGER SYSLOG {}", msg);
+
+
+
+                match syslog::unix(Facility::LOG_DAEMON) {
+                    Err(e) => println!("[!] impossible to connect to syslog: {:?}", e),
+                    Ok(writer) => {
+                        let r = writer.send(Severity::LOG_INFO, msg);
+                        if r.is_err() {
+                            println!("[!] error sending the log {}", r.err().expect("got error"));
+                        }
+                    }
+                }
+
+
+
+            }
+        }
+    }
+}
 
 fn sig_handler(
     signal_chan_rx: Receiver<Signal>,
@@ -39,16 +80,16 @@ fn sig_handler(
         let signal = signal_chan_rx.recv();
         match signal {
             Some(Signal::INT) => {
-                let msg = format!("handling signal {:?}", Signal::INT);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                //                let msg = format!("handling signal {:?}", Signal::INT);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
                 let status = daemon.lock().unwrap().stop();
-                let msg = format!("end daemon status {:?}", status);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                //                let msg = format!("end daemon status {:?}", status);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
             },
             Some(Signal::HUP) => {
                 let status = daemon.lock().unwrap().reload();
-                let msg = format!("hup reload status {:?}", status);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_NOTICE, &msg);
+                //                let msg = format!("hup reload status {:?}", status);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_NOTICE, &msg);
             },
             Some(_) => {
                 ();
@@ -87,9 +128,17 @@ fn main() {
                 print_usage(&program, opts);
                 return;
             }
+            let mut ini_logger = Logger::new(LogDest::StdOut);
             if matches.opt_present("d") {
                 demonize();
+                ini_logger = Logger::new(LogDest::Syslog);
             }
+            let logger = ini_logger;
+
+            let msg = format!("daemon start status {:?}", 123);
+            logger.log(&msg);
+            exit(0);
+
             let config_file = matches.opt_str("c").unwrap();
             let i = Ini::load_from_file(&config_file).unwrap();
             println!("configuration");
@@ -109,37 +158,46 @@ fn main() {
             let (end_signal_tx, end_signal_rx) = mpsc::channel();
             spawn(move || { sig_handler(signal, sig_handler_ref); });
 
+
             //force mutex unlock
             {
                 let op = Box::new(DebugPrint);
                 let mut daemon = main_thread_ref.lock().unwrap();
                 let start_status = daemon.start(op, end_signal_tx);
-                let msg = format!("daemon start status {:?}", start_status);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+
+
+                //                let msg = format!("daemon start status {:?}", start_status);
+                //                log!(
+                //                    REAL_SYSLOG,
+                //                    Facility::LOG_DAEMON,
+                //                    Severity::LOG_INFO,
+                //                    &msg);
+
 
                 let op = Box::new(Ls);
                 let spawn_status_oneshot = daemon.spawn_one_shot_helper(op);
-                let msg = format!("one shot start status {:?}", spawn_status_oneshot);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                //                let msg = format!("one shot start status {:?}", spawn_status_oneshot);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
 
                 let op = Box::new(FakeSpinner);
                 let spawn_status_spinner1 = daemon.spawn_spinning_helper(op);
-                let msg = format!("spinner start status1 {:?}", spawn_status_spinner1);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                //                let msg = format!("spinner start status1 {:?}", spawn_status_spinner1);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
 
                 let op2 = Box::new(FakeSpinner);
                 let spawn_status_spinner2 = daemon.spawn_spinning_helper(op2);
-                let msg = format!("spinner start status2 {:?}", spawn_status_spinner2);
-                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                //                let msg = format!("spinner start status2 {:?}", spawn_status_spinner2);
+                //                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
             }
 
             let finish_result = end_signal_rx.recv();
-            let msg = format!("finishing in {:?} status", finish_result.unwrap());
-            log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+            //            let msg = format!("finishing in {:?} status", finish_result.unwrap());
+            //            log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
         }
         Err(f) => {
             print_usage(&program, opts);
             panic!(f.to_string())
+            //            exit(0);
         }
     };
 }
