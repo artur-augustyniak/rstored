@@ -11,9 +11,54 @@ use std::thread::{spawn, sleep};
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::time::Duration;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
+
+
+#[derive(Debug)]
+pub struct Worker {
+    rx: Arc<Mutex<Receiver<()>>>,
+    tx: Arc<Mutex<Sender<()>>>
+}
+
+impl Worker {
+    pub fn new() -> Worker {
+        let (tx, rx) = mpsc::channel();
+        Worker { rx: Arc::new(Mutex::new(rx)), tx: Arc::new(Mutex::new(tx)) }
+    }
+
+    pub fn start(&self) -> () {
+        let rx = self.rx.clone();
+        spawn(move || {
+            loop {
+                match rx.lock().unwrap().try_recv() {
+                    Err(TryRecvError::Disconnected) => {
+                        println!("Terminating, channel disconnected");
+                        //                        process::exit(THREAD_ERROR_CODE);
+                    }
+                    Ok(_) => {
+                        println!("Finishing, poison pill received");
+                        break
+                    }
+                    Err(TryRecvError::Empty) => {
+                        println!("Work");
+                    }
+                }
+                sleep(Duration::from_millis(2000));
+            }
+        });
+    }
+}
+
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.tx.lock().unwrap().send(());
+        println!("Worker Drop");
+    }
+}
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -29,6 +74,7 @@ pub struct Daemon<T: ? Sized> {
     state: State,
     should_stop: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
+    logger: ::Logger,
     name: T //unsized must be last
 }
 
@@ -47,7 +93,11 @@ impl<T> Daemon<T> where T: Display {
     /// use base::Daemon;
     /// let mut d = Daemon::new("some_name")
     /// ```
-    pub fn new(id: T, anti_hog_millis: u64) -> Daemon<T> {
+    pub fn new(
+        id: T,
+        anti_hog_millis: u64,
+        logger: ::Logger
+    ) -> Daemon<T> {
         let ss = Arc::new(AtomicBool::new(false));
         let fin = Arc::new(AtomicBool::new(false));
         Daemon {
@@ -55,29 +105,27 @@ impl<T> Daemon<T> where T: Display {
             cpu_anti_hog_millis: anti_hog_millis,
             should_stop: ss,
             finished: fin,
-            state: State::NotRunning
+            state: State::NotRunning,
+            logger: logger
         }
     }
 
-    pub fn start(
-        &mut self,
-        synced_spinnable_op: Box<Operation>,
-        finish_chan_tx: Sender<Status>
-    ) -> Status {
+    pub fn start(&mut self, synced_spinnable_op: Box<Operation>) -> Status {
         match self.state {
             State::NotRunning => {
                 self.state = State::Running;
+                let msg = format!("daemon name {}", self.name);
+                self.logger.log(&msg);
+                let msg = format!("spawning worker thread");
+                self.logger.log(&msg);
 
-//                let msg = format!("daemon name {}", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-//                let msg = format!("spawning worker thread");
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-
-                //Main spinning worker resource acquisition allowed
+                //Main spinning worker, resource acquisition allowed
                 // only one such thread allowed (synchronizing graceful pool close)
                 let stop = self.should_stop.clone();
                 let finished = self.finished.clone();
                 let anti_hog_sleep = self.cpu_anti_hog_millis;
+                let logger = self.logger.clone();
+
                 spawn(move || {
                     loop {
                         if stop.load(Ordering::Relaxed) {
@@ -87,21 +135,19 @@ impl<T> Daemon<T> where T: Display {
                         sleep(Duration::from_millis(anti_hog_sleep));
                     }
                     finished.store(true, Ordering::Relaxed);
-                    let notification_status = finish_chan_tx.send(Ok(State::NotRunning));
-//                    let msg = format!("finish msg send status {:?}", notification_status);
-//                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-//                    let msg = format!("main spinning worker finished");
-//                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                    let msg = format!("main spinning worker finished");
+                    logger.log(&msg);
                 });
 
-//                let msg = format!("worker threads ready");
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+
+                let msg = format!("worker threads ready");
+                self.logger.log(&msg);
 
                 Ok(State::Running)
             },
             State::Running => {
-//                let msg = format!("{} already running", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                let msg = format!("{} already running", self.name);
+                self.logger.log(&msg);
                 Err(State::Running)
             }
         }
@@ -111,30 +157,17 @@ impl<T> Daemon<T> where T: Display {
         match self.state {
             State::Running => {
                 self.state = State::NotRunning;
-//                let msg = format!("{} will stop", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                let msg = format!("{} will stop", self.name);
+                self.logger.log(&msg);
                 let stop = self.should_stop.clone();
-                let finished = self.finished.clone();
+                //                let finished = self.finished.clone();
                 stop.store(true, Ordering::Relaxed);
-                while !finished.load(Ordering::Relaxed) {
-//                    let msg = format!("worker thread closing");
-//                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-                    sleep(Duration::from_millis(self.cpu_anti_hog_millis));
-                }
+                //                while !finished.load(Ordering::Relaxed) {
+                //                    let msg = format!("worker thread closing");
+                //                    self.logger.log(&msg);
+                //                    sleep(Duration::from_millis(self.cpu_anti_hog_millis));
+                //                }
                 Ok(State::NotRunning)
-            },
-            State::NotRunning => {
-                Err(State::NotRunning)
-            }
-        }
-    }
-
-    pub fn reload(&mut self) -> Status {
-        match self.state {
-            State::Running => {
-//                let msg = format!("{} reloading", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-                Ok(State::Running)
             },
             State::NotRunning => {
                 Err(State::NotRunning)
@@ -164,35 +197,36 @@ impl<T> Daemon<T> where T: Display {
                 Ok(State::Running)
             },
             State::NotRunning => {
-//                let msg = format!("{} not running", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
+                let msg = format!("{} not running", self.name);
+                self.logger.log(&msg);
                 Err(State::NotRunning)
             }
         }
     }
 
 
-    pub fn spawn_one_shot_helper(
-        &mut self,
-        operation: Box<Operation>
-    ) -> Status {
-        match self.state {
-            State::Running => {
-                //Helper one shot worker no resource acquisition allowed no execution
-                spawn(move || {
-                    operation.exec();
-//                    let msg = format!("helper one-shot thread finished");
-//                    log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-                });
-                Ok(State::Running)
-            },
-            State::NotRunning => {
-//                let msg = format!("{} not running", self.name);
-//                log!(REAL_SYSLOG, Facility::LOG_DAEMON, Severity::LOG_INFO, &msg);
-                Err(State::NotRunning)
-            }
-        }
-    }
+    //    pub fn spawn_one_shot_helper(
+    //        &mut self,
+    //        operation: Box<Operation>
+    //    ) -> Status {
+    //        match self.state {
+    //            State::Running => {
+    //                let logger = self.logger.clone();
+    //                //Helper one shot worker no resource acquisition allowed no execution
+    //                spawn(move || {
+    //                    operation.exec();
+    //                    let msg = format!("helper one-shot thread finished");
+    //                    logger.log(&msg);
+    //                });
+    //                Ok(State::Running)
+    //            },
+    //            State::NotRunning => {
+    //                let msg = format!("{} not running", self.name);
+    //                self.logger.log(&msg);
+    //                Err(State::NotRunning)
+    //            }
+    //        }
+    //    }
 }
 
 

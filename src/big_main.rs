@@ -10,7 +10,7 @@ extern crate ini;
 
 
 use ini::Ini;
-use base::{Daemon, DebugPrint, Ls, FakeSpinner, Worker};
+use base::{Daemon, DebugPrint, Ls, FakeSpinner};
 use getopts::Options;
 use std::env;
 use std::sync::mpsc::{self};
@@ -69,35 +69,28 @@ impl Logger {
     }
 }
 
-
-//fn initiator() {
-//    loop {
-//        let w = Worker::new();
-//        w.start();
-//        let signal = signal_chan_rx.recv();
-//    }
-//}
-
-
 fn sig_handler(
     signal_chan_rx: Receiver<Signal>,
+    daemon: Arc<Mutex<Daemon<String>>>,
     matches: &getopts::Matches,
     finish_chan_tx: Sender<()>,
     logger: Logger
 ) {
     loop {
-        let w = Worker::new();
-        w.start();
         let signal = signal_chan_rx.recv();
         match signal {
             Some(Signal::INT) => {
                 let msg = format!("Handling {:?}", Signal::INT);
                 logger.log(&msg);
+                let status = daemon.lock().unwrap().stop();
+                let msg = format!("INT status {:?}", status);
                 logger.log(&msg);
                 finish_chan_tx.send(());
+
             },
             Some(Signal::HUP) => {
                 load_config(&matches);
+//                let status = daemon.lock().unwrap().reload();
                 let msg = format!("HUP reload status {:?}", "OK");
                 logger.log(&msg);
             },
@@ -156,6 +149,7 @@ fn main() {
             let mut ini_logger = Logger::new(LogDest::StdOut);
             if matches.opt_present("d") {
                 demonize();
+                ini_logger = Logger::new(LogDest::Syslog);
             }
             let logger = ini_logger;
 
@@ -163,17 +157,39 @@ fn main() {
             logger.log(&msg);
             load_config(&matches);
             let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
-
+            let daemon_logger = logger.clone();
+            let daemon = Daemon::new(program, CPU_ANTI_HOG_MILLIS_OFFSET, daemon_logger);
+            let sig_handler_ref = Arc::new(Mutex::new(daemon));
+            let main_thread_ref = sig_handler_ref.clone();
             let (end_signal_tx, end_signal_rx) = mpsc::channel();
             let handler_thread_logger = logger.clone();
-            spawn(move || {
-                sig_handler(
-                    signal,
-                    &matches,
-                    end_signal_tx,
-                    handler_thread_logger);
-            });
+            spawn(move || { sig_handler(signal, sig_handler_ref, &matches, end_signal_tx, handler_thread_logger); });
 
+
+            //force mutex unlock
+            {
+
+                let op = Box::new(DebugPrint::new(logger.clone()));
+                let mut daemon = main_thread_ref.lock().unwrap();
+                let start_status = daemon.start(op/*, end_signal_tx*/);
+                let msg = format!("daemon start status {:?}", start_status);
+                logger.log(&msg);
+
+//                let op = Box::new(Ls::new(logger.clone()));
+//                let spawn_status_oneshot = daemon.spawn_one_shot_helper(op);
+//                let msg = format!("one shot start status {:?}", spawn_status_oneshot);
+//                logger.log(&msg);
+
+                let op = Box::new(FakeSpinner::new(logger.clone()));
+                let spawn_status_spinner1 = daemon.spawn_spinning_helper(op);
+                let msg = format!("spinner start status1 {:?}", spawn_status_spinner1);
+                logger.log(&msg);
+
+                let op2 = Box::new(FakeSpinner::new(logger.clone()));
+                let spawn_status_spinner2 = daemon.spawn_spinning_helper(op2);
+                let msg = format!("spinner start status2 {:?}", spawn_status_spinner2);
+                logger.log(&msg);
+            }
 
             let finish_result = end_signal_rx.recv();
             let msg = format!("finishing in {:?} status", finish_result.unwrap());

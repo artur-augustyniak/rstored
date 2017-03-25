@@ -5,6 +5,7 @@
 pub mod daemon;
 pub mod operation;
 
+pub use self::daemon::Worker;
 pub use self::daemon::Daemon;
 pub use self::daemon::Status;
 pub use self::operation::Operation;
