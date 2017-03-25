@@ -10,12 +10,11 @@ extern crate ini;
 
 
 use ini::Ini;
-use base::{Daemon, DebugPrint, Ls, FakeSpinner, Worker};
+use base::{Worker};
 use getopts::Options;
 use std::env;
 use std::sync::mpsc::{self};
 use std::process::{exit};
-use std::sync::{Arc, Mutex};
 use std::thread::{spawn};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
@@ -25,7 +24,6 @@ use std::sync::mpsc::{Sender};
 
 
 static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
-static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 100;
 static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
 
 
@@ -69,36 +67,59 @@ impl Logger {
     }
 }
 
+fn load_config(matches: &getopts::Matches) {
+    let config_file = matches.opt_str("c").unwrap();
+    let i = Ini::load_from_file(&config_file).unwrap();
 
-//fn initiator() {
-//    loop {
-//        let w = Worker::new();
-//        w.start();
-//        let signal = signal_chan_rx.recv();
-//    }
-//}
+    println!("configuration");
+    let general_section_name = "__General__".into();
+    for (sec, prop) in i.iter() {
+        let section_name = sec.as_ref().unwrap_or(&general_section_name);
+        println!("-- Section: {:?} begins", section_name);
+        for (k, v) in prop.iter() {
+            println!("{}: {:?}", *k, *v);
+        }
+    }
+}
 
 
-fn sig_handler(
-    signal_chan_rx: Receiver<Signal>,
-    matches: &getopts::Matches,
-    finish_chan_tx: Sender<()>,
+fn initiator(
+    reload_trigger_rx: std::sync::mpsc::Receiver<()>,
     logger: Logger
 ) {
     loop {
+        //        load_config(path);
         let w = Worker::new();
         w.start();
-        let signal = signal_chan_rx.recv();
+        let reload = reload_trigger_rx.recv();
+        let msg = format!("Worker reload {:?}", reload);
+        logger.log(&msg);
+
+    }
+}
+
+fn signal_handler(
+    signal_channel_rx: Receiver<Signal>,
+    reload_trigger_tx: Sender<()>,
+    finish_channel_tx: Sender<()>,
+    logger: Logger
+) {
+    loop {
+        let signal = signal_channel_rx.recv();
         match signal {
             Some(Signal::INT) => {
                 let msg = format!("Handling {:?}", Signal::INT);
                 logger.log(&msg);
+                let finish = finish_channel_tx.send(());
+                let msg = format!("INT finish status {:?}", finish);
                 logger.log(&msg);
-                finish_chan_tx.send(());
+
             },
             Some(Signal::HUP) => {
-                load_config(&matches);
-                let msg = format!("HUP reload status {:?}", "OK");
+                let msg = format!("Handling {:?}", Signal::HUP);
+                logger.log(&msg);
+                let reload = reload_trigger_tx.send(());
+                let msg = format!("HUP reload status {:?}", reload);
                 logger.log(&msg);
             },
             Some(_) => {
@@ -124,21 +145,6 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn load_config(matches: &getopts::Matches) {
-    let config_file = matches.opt_str("c").unwrap();
-    let i = Ini::load_from_file(&config_file).unwrap();
-
-    println!("configuration");
-    let general_section_name = "__General__".into();
-    for (sec, prop) in i.iter() {
-        let section_name = sec.as_ref().unwrap_or(&general_section_name);
-        println!("-- Section: {:?} begins", section_name);
-        for (k, v) in prop.iter() {
-            println!("{}: {:?}", *k, *v);
-        }
-    }
-}
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -147,6 +153,7 @@ fn main() {
     opts.reqopt("c", "", "ini configuration file path", "[FILE]");
     opts.optflag("d", "demonize", "demonize in old unix fashion");
     opts.optflag("h", "help", "print this message");
+
     match opts.parse(&args[1..]) {
         Ok(matches) => {
             if matches.opt_present("h") {
@@ -156,33 +163,35 @@ fn main() {
             let mut ini_logger = Logger::new(LogDest::StdOut);
             if matches.opt_present("d") {
                 demonize();
+                ini_logger = Logger::new(LogDest::Syslog);
             }
             let logger = ini_logger;
+            let signal_handler_logger = logger.clone();
+            let initiator_logger = logger.clone();
 
-            let msg = format!("daemon start status {:?}", 123);
-            logger.log(&msg);
-            load_config(&matches);
-            let signal = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
+            let signal_channel_rx = notify(&[Signal::INT, Signal::HUP, Signal::TERM]);
+            let (finish_channel_tx, finish_channel_rx) = mpsc::channel();
+            let (reload_trigger_tx, reload_trigger_rx) = mpsc::channel();
 
-            let (end_signal_tx, end_signal_rx) = mpsc::channel();
-            let handler_thread_logger = logger.clone();
             spawn(move || {
-                sig_handler(
-                    signal,
-                    &matches,
-                    end_signal_tx,
-                    handler_thread_logger);
+                initiator(reload_trigger_rx, initiator_logger);
             });
 
+            spawn(move || {
+                signal_handler(
+                    signal_channel_rx,
+                    reload_trigger_tx,
+                    finish_channel_tx,
+                    signal_handler_logger);
+            });
 
-            let finish_result = end_signal_rx.recv();
-            let msg = format!("finishing in {:?} status", finish_result.unwrap());
+            let finish_result = finish_channel_rx.recv();
+            let msg = format!("shutdown {:?} status", finish_result.unwrap());
             logger.log(&msg);
         }
-        Err(f) => {
+        Err(_) => {
             print_usage(&program, opts);
-            panic!(f.to_string())
-            //            exit(0);
+            return;
         }
     };
 }
