@@ -1,5 +1,7 @@
 #TODO
-- rekonstrukcja głównej pętli ze względu na restart
+- op job do worker
+- timeout z load config
+- resolve unwrap->fold
 - output w zależności od tego czy użyto demonize //kolorki w stdout kiedy stdout severities odpowiadające systemd <4>
 - handle unwrap i poprawki kodu wg err reporting rustlang
 - dynamiczne ładowanie pluginów `Operation` natywne i w innych językach

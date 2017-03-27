@@ -1,15 +1,16 @@
 mod base;
+mod logging;
 
 #[macro_use]
 extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
-extern crate syslog;
 extern crate ini;
 
 
 use ini::Ini;
+use logging::{LogDest, Logger};
 use base::{Worker};
 use getopts::Options;
 use std::env;
@@ -19,58 +20,15 @@ use std::thread::{spawn};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
-use syslog::{Facility, Severity};
 use std::sync::mpsc::{Sender};
 
 
-static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
+pub static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
 
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum LogDest {
-    StdOut,
-    Syslog,
-}
-
-#[derive(Debug, Clone)]
-pub struct Logger {
-    dest: LogDest
-}
-
-
-impl Logger {
-    pub fn new(dest: LogDest) -> Logger {
-        Logger { dest: dest }
-    }
-
-    fn log(&self, msg: &str) -> () {
-        match self.dest {
-            LogDest::StdOut => {
-                println!("LOGGER STDOUT {}", msg);
-            },
-            LogDest::Syslog => {
-                println!("LOGGER SYSLOG {}", msg);
-
-
-                match syslog::unix(Facility::LOG_DAEMON) {
-                    Err(e) => println!("[!] impossible to connect to syslog: {:?}", e),
-                    Ok(writer) => {
-                        let r = writer.send(Severity::LOG_INFO, msg);
-                        if r.is_err() {
-                            println!("[!] error sending the log {}", r.err().expect("got error"));
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn load_config(matches: &getopts::Matches) {
-    let config_file = matches.opt_str("c").unwrap();
-    let i = Ini::load_from_file(&config_file).unwrap();
-
+fn load_config(config_file: &str) {
+    let i = Ini::load_from_file(config_file).unwrap();
     println!("configuration");
     let general_section_name = "__General__".into();
     for (sec, prop) in i.iter() {
@@ -85,16 +43,38 @@ fn load_config(matches: &getopts::Matches) {
 
 fn initiator(
     reload_trigger_rx: std::sync::mpsc::Receiver<()>,
-    logger: Logger
+    logger: Logger,
+    cfg_file_path: &str
 ) {
     loop {
-        //        load_config(path);
+        load_config(cfg_file_path);
+
+//        let op = Box::new(DebugPrint::new(logger.clone()));
+//        let mut daemon = main_thread_ref.lock().unwrap();
+//        let start_status = daemon.start(op/*, end_signal_tx*/);
+//        let msg = format!("daemon start status {:?}", start_status);
+//        logger.log(&msg);
+//
+//        //                let op = Box::new(Ls::new(logger.clone()));
+//        //                let spawn_status_oneshot = daemon.spawn_one_shot_helper(op);
+//        //                let msg = format!("one shot start status {:?}", spawn_status_oneshot);
+//        //                logger.log(&msg);
+//
+//        let op = Box::new(FakeSpinner::new(logger.clone()));
+//        let spawn_status_spinner1 = daemon.spawn_spinning_helper(op);
+//        let msg = format!("spinner start status1 {:?}", spawn_status_spinner1);
+//        logger.log(&msg);
+//
+//        let op2 = Box::new(FakeSpinner::new(logger.clone()));
+//        let spawn_status_spinner2 = daemon.spawn_spinning_helper(op2);
+//        let msg = format!("spinner start status2 {:?}", spawn_status_spinner2);
+//        logger.log(&msg)
+
         let w = Worker::new();
         w.start();
         let reload = reload_trigger_rx.recv();
         let msg = format!("Worker reload {:?}", reload);
         logger.log(&msg);
-
     }
 }
 
@@ -113,18 +93,17 @@ fn signal_handler(
                 let finish = finish_channel_tx.send(());
                 let msg = format!("INT finish status {:?}", finish);
                 logger.log(&msg);
-
-            },
+            }
             Some(Signal::HUP) => {
                 let msg = format!("Handling {:?}", Signal::HUP);
                 logger.log(&msg);
                 let reload = reload_trigger_tx.send(());
                 let msg = format!("HUP reload status {:?}", reload);
                 logger.log(&msg);
-            },
+            }
             Some(_) => {
                 ();
-            },
+            }
             None => {
                 exit(SIGNALING_ERROR_EXIT_CODE);
             }
@@ -173,8 +152,10 @@ fn main() {
             let (finish_channel_tx, finish_channel_rx) = mpsc::channel();
             let (reload_trigger_tx, reload_trigger_rx) = mpsc::channel();
 
+            let config_file = matches.opt_str("c").unwrap();
+
             spawn(move || {
-                initiator(reload_trigger_rx, initiator_logger);
+                initiator(reload_trigger_rx, initiator_logger, &config_file);
             });
 
             spawn(move || {

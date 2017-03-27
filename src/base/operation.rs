@@ -2,6 +2,7 @@ extern crate libc;
 
 
 use std::process::Command;
+use ::logging::{Logger, LogDest};
 
 fn get_thread_id() -> libc::pthread_t {
     unsafe { libc::pthread_self() }
@@ -13,12 +14,12 @@ pub trait Operation: Send + Sync {
 
 #[derive(Debug)]
 pub struct DebugPrint {
-    logger: ::Logger
+    logger: Logger
 }
 
 
 impl DebugPrint {
-    pub fn new(logger: ::Logger) -> DebugPrint {
+    pub fn new(logger: Logger) -> DebugPrint {
         DebugPrint { logger: logger }
     }
 }
@@ -32,11 +33,11 @@ impl Operation for DebugPrint {
 
 #[derive(Debug)]
 pub struct Ls {
-    logger: ::Logger
+    logger: Logger
 }
 
 impl Ls {
-    pub fn new(logger: ::Logger) -> Ls {
+    pub fn new(logger: Logger) -> Ls {
         Ls { logger: logger }
     }
 }
@@ -56,11 +57,11 @@ impl Operation for Ls {
 
 #[derive(Debug)]
 pub struct FakeSpinner {
-    logger: ::Logger
+    logger: Logger
 }
 
 impl FakeSpinner {
-    pub fn new(logger: ::Logger) -> FakeSpinner {
+    pub fn new(logger: Logger) -> FakeSpinner {
         FakeSpinner { logger: logger }
     }
 }
