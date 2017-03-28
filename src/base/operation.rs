@@ -1,14 +1,15 @@
 extern crate libc;
 
-
+use std::fmt::Debug;
 use std::process::Command;
-use ::logging::{Logger, LogDest};
+use ::logging::{Logger};
 
 fn get_thread_id() -> libc::pthread_t {
     unsafe { libc::pthread_self() }
 }
 
-pub trait Operation: Send + Sync {
+
+pub trait Operation: Send + Sync + Debug {
     fn exec(&self) -> ();
 }
 

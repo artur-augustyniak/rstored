@@ -10,10 +10,12 @@ extern crate ini;
 
 
 use ini::Ini;
+use base::{Operation, DebugPrint, Ls, FakeSpinner};
 use logging::{LogDest, Logger};
 use base::{Worker};
 use getopts::Options;
 use std::env;
+use std::sync::{Arc};
 use std::sync::mpsc::{self};
 use std::process::{exit};
 use std::thread::{spawn};
@@ -21,6 +23,7 @@ use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
+use std::collections::HashMap;
 
 
 pub static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
@@ -30,11 +33,18 @@ static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
 fn load_config(config_file: &str) {
     let i = Ini::load_from_file(config_file).unwrap();
     println!("configuration");
+
+//    let mut config = HashMap::new();
+
     let general_section_name = "__General__".into();
+
     for (sec, prop) in i.iter() {
         let section_name = sec.as_ref().unwrap_or(&general_section_name);
+//        let mut section_contents = HashMap::new();
+//        config.insert(section_name, section_contents);
         println!("-- Section: {:?} begins", section_name);
         for (k, v) in prop.iter() {
+//            section_contents.insert(*k, *v);
             println!("{}: {:?}", *k, *v);
         }
     }
@@ -48,32 +58,15 @@ fn initiator(
 ) {
     loop {
         load_config(cfg_file_path);
+        let mut v: Vec<Box<Operation>> = Vec::new();
 
-//        let op = Box::new(DebugPrint::new(logger.clone()));
-//        let mut daemon = main_thread_ref.lock().unwrap();
-//        let start_status = daemon.start(op/*, end_signal_tx*/);
-//        let msg = format!("daemon start status {:?}", start_status);
-//        logger.log(&msg);
-//
-//        //                let op = Box::new(Ls::new(logger.clone()));
-//        //                let spawn_status_oneshot = daemon.spawn_one_shot_helper(op);
-//        //                let msg = format!("one shot start status {:?}", spawn_status_oneshot);
-//        //                logger.log(&msg);
-//
-//        let op = Box::new(FakeSpinner::new(logger.clone()));
-//        let spawn_status_spinner1 = daemon.spawn_spinning_helper(op);
-//        let msg = format!("spinner start status1 {:?}", spawn_status_spinner1);
-//        logger.log(&msg);
-//
-//        let op2 = Box::new(FakeSpinner::new(logger.clone()));
-//        let spawn_status_spinner2 = daemon.spawn_spinning_helper(op2);
-//        let msg = format!("spinner start status2 {:?}", spawn_status_spinner2);
-//        logger.log(&msg)
-
-        let w = Worker::new();
+        v.push(Box::new(DebugPrint::new(logger.clone())));
+        v.push(Box::new(Ls::new(logger.clone())));
+        v.push(Box::new(FakeSpinner::new(logger.clone())));
+        let w = Worker::new(logger.clone(), Arc::new(v));
         w.start();
         let reload = reload_trigger_rx.recv();
-        let msg = format!("Worker reload {:?}", reload);
+        let msg = format!("Worker start {:?}", reload);
         logger.log(&msg);
     }
 }
