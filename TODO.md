@@ -1,5 +1,4 @@
 #TODO
-- timeout z load config
 - resolve unwrap->fold
 - ops w pluginach
 - output w zależności od tego czy użyto demonize //kolorki w stdout kiedy stdout severities odpowiadające systemd <4>

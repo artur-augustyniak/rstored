@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-cargo run -- -c ./etc/rstored.ini
+RUST_BACKTRACE=1 cargo run -- -c ./etc/rstored.ini

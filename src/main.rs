@@ -6,13 +6,10 @@ extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
-extern crate ini;
 
-
-use ini::Ini;
 use base::{Operation, DebugPrint, Ls, FakeSpinner};
 use logging::{LogDest, Logger};
-use base::{Worker};
+use base::{Worker, Config};
 use getopts::Options;
 use std::env;
 use std::sync::{Arc};
@@ -23,32 +20,10 @@ use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
-use std::collections::HashMap;
 
 
 pub static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
-
-
-fn load_config(config_file: &str) {
-    let i = Ini::load_from_file(config_file).unwrap();
-    println!("configuration");
-
-//    let mut config = HashMap::new();
-
-    let general_section_name = "__General__".into();
-
-    for (sec, prop) in i.iter() {
-        let section_name = sec.as_ref().unwrap_or(&general_section_name);
-//        let mut section_contents = HashMap::new();
-//        config.insert(section_name, section_contents);
-        println!("-- Section: {:?} begins", section_name);
-        for (k, v) in prop.iter() {
-//            section_contents.insert(*k, *v);
-            println!("{}: {:?}", *k, *v);
-        }
-    }
-}
 
 
 fn initiator(
@@ -57,13 +32,12 @@ fn initiator(
     cfg_file_path: &str
 ) {
     loop {
-        load_config(cfg_file_path);
+        let config = Config::new(cfg_file_path);
         let mut v: Vec<Box<Operation>> = Vec::new();
-
         v.push(Box::new(DebugPrint::new(logger.clone())));
         v.push(Box::new(Ls::new(logger.clone())));
         v.push(Box::new(FakeSpinner::new(logger.clone())));
-        let w = Worker::new(logger.clone(), Arc::new(v));
+        let w = Worker::new(logger.clone(), Arc::new(v), config.unwrap());
         w.start();
         let reload = reload_trigger_rx.recv();
         let msg = format!("Worker start {:?}", reload);
