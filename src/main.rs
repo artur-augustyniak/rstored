@@ -21,8 +21,8 @@ use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
 
-
-pub static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
+static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
+static CONFIG_ERROR_EXIT_CODE: i32 = 0x2;
 static STD_OUT_ERR_REDIR: &'static str = "/dev/null";
 
 
@@ -33,15 +33,25 @@ fn initiator(
 ) {
     loop {
         let config = Config::new(cfg_file_path);
-        let mut v: Vec<Box<Operation>> = Vec::new();
-        v.push(Box::new(DebugPrint::new(logger.clone())));
-        v.push(Box::new(Ls::new(logger.clone())));
-        v.push(Box::new(FakeSpinner::new(logger.clone())));
-        let w = Worker::new(logger.clone(), Arc::new(v), config.unwrap());
-        w.start();
-        let reload = reload_trigger_rx.recv();
-        let msg = format!("Worker start {:?}", reload);
-        logger.log(&msg);
+
+        match config {
+            Ok(c) => {
+                println!("{:?}", c);
+                let mut v: Vec<Box<Operation>> = Vec::new();
+                v.push(Box::new(DebugPrint::new(logger.clone())));
+                v.push(Box::new(Ls::new(logger.clone())));
+                v.push(Box::new(FakeSpinner::new(logger.clone())));
+                let w = Worker::new(logger.clone(), Arc::new(v), c);
+                w.start();
+                let reload = reload_trigger_rx.recv();
+                let msg = format!("Worker start {:?}", reload);
+                logger.log(&msg);
+            }
+            Err(err) => {
+                println!("Error: {}", err);
+                exit(CONFIG_ERROR_EXIT_CODE);
+            }
+        }
     }
 }
 
