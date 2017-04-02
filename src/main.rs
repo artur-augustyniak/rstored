@@ -1,7 +1,6 @@
 mod base;
 mod logging;
 
-#[macro_use]
 extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
