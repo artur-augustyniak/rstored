@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
 
 [dependencies]
+daemonize = "0.2.3"
 log = "0.3"
 rust-ini = "0.10.0"
 syslog = "3.2.0"
@@ -15,7 +16,6 @@ valico = "1.0.1"
 serde = "0.9.10"
 serde_json = "0.9.8"
 time = "0.1.36"
-unix-daemonize = "0.1"
 chan = "0.1.19"
 chan-signal = "0.2.0"
 getopts = "0.2.14"

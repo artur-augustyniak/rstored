@@ -1,9 +1,10 @@
 mod base;
 mod logging;
 
+#[macro_use] extern crate log;
+extern crate daemonize;
 extern crate chan;
 extern crate chan_signal;
-extern crate unix_daemonize;
 extern crate getopts;
 
 use base::{Operation, DebugPrint, Ls, FakeSpinner};
@@ -17,8 +18,8 @@ use std::process::{exit};
 use std::thread::{spawn};
 use chan::{Receiver};
 use chan_signal::{Signal, notify};
-use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
+use daemonize::{Daemonize};
 
 static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 static CONFIG_ERROR_EXIT_CODE: i32 = 0x2;
@@ -88,10 +89,10 @@ fn signal_handler(
 }
 
 fn demonize() {
-    daemonize_redirect(
-        Some(STD_OUT_ERR_REDIR),
-        Some(STD_OUT_ERR_REDIR),
-        ChdirMode::ChdirRoot).unwrap(); //TODO handle unwrap
+//    daemonize_redirect(
+//        Some(STD_OUT_ERR_REDIR),
+//        Some(STD_OUT_ERR_REDIR),
+//        ChdirMode::ChdirRoot).unwrap(); //TODO handle unwrap
 }
 
 
@@ -115,10 +116,42 @@ fn main() {
                 print_usage(&program, opts);
                 return;
             }
-            let mut ini_logger = Logger::new(LogDest::StdOut);
+            let mut ini_logger = Logger::new(LogDest::Syslog);
             if matches.opt_present("d") {
-                demonize();
-                ini_logger = Logger::new(LogDest::Syslog);
+
+                let daemonize = Daemonize::new()
+                    .pid_file("/tmp/test.pid") // Every method except `new` and `start`
+//                    .chown_pid_file(true)      // is optional, see `Daemonize` documentation
+                    .working_directory("/tmp") // for default behaviour.
+                    .user("aaugustyniak")
+                    .group("aaugustyniak") // Group name
+                    .group(1000)        // or group id.
+                    .umask(0o777)    // Set umask, `0o027` by default.
+                    .privileged_action(|| "Executed before drop privileges");
+
+                match daemonize.start() {
+                    Ok(_) => ini_logger.log("Success, daemonized"),
+
+                    Err(e) => {
+                        let msg = format!("error {:?}", e);
+                        ini_logger.log(&msg)
+                    }
+                }
+
+
+//                demonize();
+//                ini_logger = Logger::new(LogDest::Syslog);
+
+//                match fork().expect("fork failed") {
+//                    ForkResult::Parent{ child } => {
+//                        sleep(5);
+//                        kill(child, SIGKILL).expect("kill failed");
+//                    }
+//                    ForkResult::Child => {
+//                        loop {}  // until killed
+//                    }
+//                }
+
             }
             let logger = ini_logger;
             let signal_handler_logger = logger.clone();
