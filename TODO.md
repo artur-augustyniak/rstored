@@ -1,5 +1,6 @@
 #TODO
-- send err on deminize
+- send err on deminize (channel zepsuty niezaleznie od tego jakiego liba wybrac)
+- logi (moze log crate) info warn itp
 - resolve unwrap->fold
 - ops w pluginach
 - output w zależności od tego czy użyto demonize //kolorki w stdout kiedy stdout severities odpowiadające systemd <4>
