@@ -43,7 +43,7 @@ fn initiator(
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();
                 let reload = reload_trigger_rx.recv();
-                let msg = format!("Worker start {:?}", reload);
+                let msg = format!("Worker restart {:?}", reload);
                 logger.log(&msg);
             }
             Err(err) => {
