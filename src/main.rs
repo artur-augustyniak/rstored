@@ -88,10 +88,16 @@ fn signal_handler(
 }
 
 fn demonize() {
-    daemonize_redirect(
+    match daemonize_redirect(
         Some(STD_OUT_ERR_REDIR),
         Some(STD_OUT_ERR_REDIR),
-        ChdirMode::ChdirRoot).unwrap(); //TODO handle unwrap
+        ChdirMode::ChdirRoot) {
+        Err(err) => {
+            println!("Error: {:?}", err);
+            exit(CONFIG_ERROR_EXIT_CODE);
+        }
+        _ => ()
+    }
 }
 
 
@@ -128,23 +134,27 @@ fn main() {
             let (finish_channel_tx, finish_channel_rx) = mpsc::channel();
             let (reload_trigger_tx, reload_trigger_rx) = mpsc::channel();
 
-            let config_file = matches.opt_str("c").unwrap();
 
-            spawn(move || {
-                initiator(reload_trigger_rx, initiator_logger, &config_file);
-            });
+            if let Some(config_file) = matches.opt_str("c") {
+                spawn(move || {
+                    initiator(reload_trigger_rx, initiator_logger, &config_file);
+                });
 
-            spawn(move || {
-                signal_handler(
-                    signal_channel_rx,
-                    reload_trigger_tx,
-                    finish_channel_tx,
-                    signal_handler_logger);
-            });
+                spawn(move || {
+                    signal_handler(
+                        signal_channel_rx,
+                        reload_trigger_tx,
+                        finish_channel_tx,
+                        signal_handler_logger);
+                });
 
-            let finish_result = finish_channel_rx.recv();
-            let msg = format!("shutdown {:?} status", finish_result.unwrap());
-            logger.log(&msg);
+                let finish_result = finish_channel_rx.recv();
+                let msg = format!("shutdown {:?} status", finish_result);
+                logger.log(&msg);
+            }  else {
+                print_usage(&program, opts);
+                return;
+            }
         }
         Err(_) => {
             print_usage(&program, opts);
