@@ -1,8 +1,9 @@
 pub extern crate syslog;
+extern crate ansi_term;
 
 use self::syslog::Facility;
-use self::syslog::Severity;
-//use std::fmt::{Formatter, Display, Error};
+pub use self::syslog::Severity;
+use self::ansi_term::Colour::{Red, Yellow, White, Green, Cyan, Blue};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -25,7 +26,32 @@ impl Logger {
     pub fn log(&self, severity: Severity, msg: &str) -> () {
         match self.dest {
             LogDest::StdOut => {
-                println!("LOGGER STDOUT  {:?}", msg);
+                match severity {
+                    Severity::LOG_EMERG => {
+                        println!("<0> {}", Cyan.paint(msg));
+                    }
+                    Severity::LOG_ALERT => {
+                        println!("<1> {}", Red.paint(msg));
+                    }
+                    Severity::LOG_CRIT => {
+                        println!("<2> {}", Red.paint(msg));
+                    }
+                    Severity::LOG_ERR => {
+                        println!("<3> {}", Red.paint(msg));
+                    }
+                    Severity::LOG_WARNING => {
+                        println!("<4> {}", Yellow.paint(msg));
+                    }
+                    Severity::LOG_NOTICE => {
+                        println!("<5> {}", Blue.paint(msg));
+                    }
+                    Severity::LOG_INFO => {
+                        println!("<6> {}", White.paint(msg));
+                    }
+                    Severity::LOG_DEBUG => {
+                        println!("<7> {}", Green.paint(msg));
+                    }
+                }
             }
             LogDest::Syslog => {
                 match syslog::unix(Facility::LOG_DAEMON) {

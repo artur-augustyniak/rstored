@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
 
 [dependencies]
+ansi_term = "0.9.0"
 log = "0.3"
 rust-ini = "0.10.0"
 syslog = "3.2.0"
