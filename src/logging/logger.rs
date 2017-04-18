@@ -1,6 +1,9 @@
-extern crate syslog;
+pub extern crate syslog;
 
-use self::syslog::{Facility, Severity};
+use self::syslog::Facility;
+use self::syslog::Severity;
+//use std::fmt::{Formatter, Display, Error};
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LogDest {
@@ -19,19 +22,16 @@ impl Logger {
         Logger { dest: dest }
     }
 
-    pub fn log(&self, msg: &str) -> () {
+    pub fn log(&self, severity: Severity, msg: &str) -> () {
         match self.dest {
             LogDest::StdOut => {
-                println!("LOGGER STDOUT {}", msg);
+                println!("LOGGER STDOUT  {:?}", msg);
             }
             LogDest::Syslog => {
-                println!("LOGGER SYSLOG {}", msg);
-
-
                 match syslog::unix(Facility::LOG_DAEMON) {
                     Err(e) => println!("[!] impossible to connect to syslog: {:?}", e),
                     Ok(writer) => {
-                        let r = writer.send(Severity::LOG_INFO, msg);
+                        let r = writer.send(severity, msg);
                         if r.is_err() {
                             println!("[!] error sending the log {}", r.err().expect("got error"));
                         }

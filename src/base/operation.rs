@@ -3,6 +3,7 @@ extern crate libc;
 use std::fmt::Debug;
 use std::process::Command;
 use ::logging::{Logger};
+use logging::logger::syslog::Severity;
 
 fn get_thread_id() -> libc::pthread_t {
     unsafe { libc::pthread_self() }
@@ -28,7 +29,7 @@ impl DebugPrint {
 impl Operation for DebugPrint {
     fn exec(&self) -> () {
         let msg = format!("Thread id {:?} {:?} working... ", get_thread_id(), self);
-        self.logger.log(&msg);
+        self.logger.log(Severity::LOG_INFO, &msg);
     }
 }
 
@@ -46,12 +47,14 @@ impl Ls {
 impl Operation for Ls {
     fn exec(&self) -> () {
         let msg = format!("Thread id {:?} {:?} working... ", get_thread_id(), self);
-        self.logger.log(&msg);
+        self.logger.log(Severity::LOG_INFO,&msg);
         let status = Command::new("ls").status().unwrap_or_else(|e| {
-            panic!("failed to execute process: {}", e)
+            let msg = format!("failed to execute process: {}", e);
+            self.logger.log(Severity::LOG_ERR, &msg);
+            panic!(msg)
         });
         let msg = format!("process exited with status: {}", status);
-        self.logger.log(&msg);
+        self.logger.log(Severity::LOG_INFO, &msg);
     }
 }
 
@@ -71,6 +74,6 @@ impl FakeSpinner {
 impl Operation for FakeSpinner {
     fn exec(&self) -> () {
         let msg = format!("Thread id {:?} {:?} working... ", get_thread_id(), self);
-        self.logger.log(&msg);
+        self.logger.log(Severity::LOG_INFO, &msg);
     }
 }

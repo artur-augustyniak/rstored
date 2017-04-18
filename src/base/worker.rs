@@ -16,6 +16,8 @@ use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
 use ::logging::{Logger};
 use ::base::{Config};
 
+pub use logging::logger::syslog::Severity as Severity;
+
 static CONCURRENCY_ERROR_EXIT_CODE: i32 = 0x3;
 static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 100;
 
@@ -55,11 +57,11 @@ impl Worker {
                     Ok(guard) => {
                         match guard.try_recv() {
                             Err(TryRecvError::Disconnected) => {
-                                logger.log("Terminating, worker channel disconnected");
+                                logger.log(Severity::LOG_CRIT, "Terminating, worker channel disconnected");
                                 exit(::SIGNALING_ERROR_EXIT_CODE);
                             }
                             Ok(_) => {
-                                logger.log("Finishing, poison pill received");
+                                logger.log(Severity::LOG_NOTICE, "Finishing, poison pill received");
                                 break
                             }
                             Err(TryRecvError::Empty) => {
@@ -71,7 +73,8 @@ impl Worker {
                         }
                     }
                     Err(err) => {
-                        println!("Error: {:?}", err);
+                        let msg = format!("Mutex lock error: {:?}", err);
+                        logger.log(Severity::LOG_ALERT, &msg);
                         exit(CONCURRENCY_ERROR_EXIT_CODE);
                     }
                 }
@@ -88,7 +91,7 @@ impl Drop for Worker {
             Ok(guard) => {
                 let _ = guard.send(());
                 let msg = format!("Worker drop, <free({:?}>)", self);
-                self.logger.log(&msg);
+                self.logger.log(Severity::LOG_INFO, &msg);
             }
             Err(err) => {
                 println!("Error: {:?}", err);

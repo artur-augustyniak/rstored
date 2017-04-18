@@ -6,6 +6,7 @@ extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
 
+use logging::logger::syslog::Severity;
 use base::{Operation, DebugPrint, Ls, FakeSpinner};
 use logging::{LogDest, Logger};
 use base::{Worker, Config};
@@ -31,11 +32,8 @@ fn initiator(
     cfg_file_path: &str
 ) {
     loop {
-        let config = Config::new(cfg_file_path);
-
-        match config {
+        match Config::new(cfg_file_path) {
             Ok(c) => {
-                println!("{:?}", c);
                 let mut v: Vec<Box<Operation>> = Vec::new();
                 v.push(Box::new(DebugPrint::new(logger.clone())));
                 v.push(Box::new(Ls::new(logger.clone())));
@@ -44,10 +42,11 @@ fn initiator(
                 w.start();
                 let reload = reload_trigger_rx.recv();
                 let msg = format!("Worker restart {:?}", reload);
-                logger.log(&msg);
+                logger.log(Severity::LOG_NOTICE, &msg);
             }
             Err(err) => {
-                println!("Error: {}", err);
+                let msg = format!("Config file error: {:?}", err);
+                logger.log(Severity::LOG_CRIT, &msg);
                 exit(CONFIG_ERROR_EXIT_CODE);
             }
         }
@@ -65,35 +64,37 @@ fn signal_handler(
         match signal {
             Some(Signal::INT) => {
                 let msg = format!("Handling {:?}", Signal::INT);
-                logger.log(&msg);
+                logger.log(Severity::LOG_NOTICE, &msg);
                 let finish = finish_channel_tx.send(());
                 let msg = format!("INT finish status {:?}", finish);
-                logger.log(&msg);
+                logger.log(Severity::LOG_NOTICE, &msg);
             }
             Some(Signal::HUP) => {
                 let msg = format!("Handling {:?}", Signal::HUP);
-                logger.log(&msg);
+                logger.log(Severity::LOG_NOTICE, &msg);
                 let reload = reload_trigger_tx.send(());
                 let msg = format!("HUP reload status {:?}", reload);
-                logger.log(&msg);
+                logger.log(Severity::LOG_NOTICE, &msg);
             }
             Some(_) => {
                 ();
             }
             None => {
+                logger.log(Severity::LOG_CRIT, &"Signaling system error");
                 exit(SIGNALING_ERROR_EXIT_CODE);
             }
         }
     }
 }
 
-fn demonize() {
+fn demonize(logger: Logger) {
     match daemonize_redirect(
         Some(STD_OUT_ERR_REDIR),
         Some(STD_OUT_ERR_REDIR),
         ChdirMode::ChdirRoot) {
         Err(err) => {
-            println!("Error: {:?}", err);
+            let msg = format!("Demonize error: {:?}", err);
+            logger.log(Severity::LOG_CRIT, &msg);
             exit(CONFIG_ERROR_EXIT_CODE);
         }
         _ => ()
@@ -123,7 +124,7 @@ fn main() {
             }
             let mut ini_logger = Logger::new(LogDest::StdOut);
             if matches.opt_present("d") {
-                demonize();
+                demonize(ini_logger);
                 ini_logger = Logger::new(LogDest::Syslog);
             }
             let logger = ini_logger;
@@ -150,8 +151,8 @@ fn main() {
 
                 let finish_result = finish_channel_rx.recv();
                 let msg = format!("shutdown {:?} status", finish_result);
-                logger.log(&msg);
-            }  else {
+                logger.log(Severity::LOG_NOTICE, &msg);
+            } else {
                 print_usage(&program, opts);
                 return;
             }

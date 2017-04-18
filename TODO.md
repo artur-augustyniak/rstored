@@ -1,7 +1,9 @@
 #TODO
-- logi (moze log crate) info warn itp
-- ops w pluginach
+- logi (moze log crate) info warn itp debug logs?
 - output w zależności od tego czy użyto demonize //kolorki w stdout kiedy stdout severities odpowiadające systemd <4>
+- cleanup log msgs
+- simplyfy error-option handling
+- ops w pluginach
 - handle unwrap i poprawki kodu wg err reporting rustlang
 - dynamiczne ładowanie pluginów `Operation` natywne i w innych językach
 - porządek z importami ::base
