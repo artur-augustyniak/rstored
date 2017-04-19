@@ -1,6 +1,6 @@
 #TODO
-- switch systemd output kolorki albo bez i prefix bsd<>
 - cleanup log msgs
+- tdd
 - simplyfy error-option handling
 - ops w pluginach
 - handle unwrap i poprawki kodu wg err reporting rustlang

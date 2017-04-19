@@ -1,0 +1,9 @@
+[Unit]
+Description=Rstored Daemon
+Documentation=https://aaugustyniak.pl/rstored
+
+[Service]
+Type=simple
+ExecStart=/blah/rstored -c /blah/etc/rstored.ini
+
+[Install]

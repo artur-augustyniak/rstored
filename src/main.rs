@@ -62,8 +62,8 @@ fn signal_handler(
     loop {
         let signal = signal_channel_rx.recv();
         match signal {
-            Some(Signal::INT) => {
-                let msg = format!("Handling {:?}", Signal::INT);
+            Some(sig) if Signal::INT == sig || Signal::TERM == sig => {
+                let msg = format!("Handling {:?}", sig);
                 logger.log(Severity::LOG_NOTICE, &msg);
                 let finish = finish_channel_tx.send(());
                 let msg = format!("INT finish status {:?}", finish);
