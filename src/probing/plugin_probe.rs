@@ -23,7 +23,7 @@ impl Plugin {
 }
 
 fn call_dynamic() -> lib::Result<String> {
-    let lib = try!(lib::Library::new("/home/aaugustyniak/Pulpit/somelib/target/debug/libsomelib.so"));
+    let lib = try!(lib::Library::new("/tmp/libsomelib.so"));
     unsafe {
         let func: lib::Symbol<unsafe extern fn() -> String> = try!(lib.get(b"hosts"));
         Ok(func())

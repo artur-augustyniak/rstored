@@ -6,7 +6,7 @@ builins
 
 //        let disk = disk_info().unwrap();
 //        println!("disk: total {} KB, free {} KB", disk.total, disk.free);
-
+- TODO timeout warn, probes without loops check? w przypadku zawieszonych probów
 - cleanup log msgs
 - tdd
 - simplyfy error-option handling
