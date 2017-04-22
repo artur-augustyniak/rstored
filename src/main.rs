@@ -20,7 +20,7 @@ use std::sync::mpsc::{Sender};
 
 use logging::logger::syslog::Severity;
 use base::{Worker, Config};
-use probing::{Probe, Mem};
+use probing::*;
 use logging::{LogDest, Logger};
 
 static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
@@ -37,9 +37,9 @@ fn initiator(
         match Config::new(cfg_file_path) {
             Ok(c) => {
                 let mut v: Vec<Box<Probe>> = Vec::new();
-
                 v.push(Box::new(Mem::new(logger.clone())));
-
+                v.push(Box::new(Swap::new(logger.clone())));
+                v.push(Box::new(Os::new(logger.clone())));
 
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);

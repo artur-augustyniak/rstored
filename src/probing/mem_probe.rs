@@ -48,12 +48,3 @@ impl Probe for Mem {
         &self.logger
     }
 }
-//println!("swap: total {} KB, free {} KB", mem.swap_total, mem.swap_free);
-//        println!("os: {} {}", os_type().unwrap(), os_release().unwrap());
-//        println!("cpu: {} cores, {} MHz", cpu_num().unwrap(), cpu_speed().unwrap());
-//        println!("proc total: {}", proc_total().unwrap());
-//        let load = loadavg().unwrap();
-//        println!("load: {} {} {}", load.one, load.five, load.fifteen);
-//        let disk = disk_info().unwrap();
-//        println!("disk: total {} KB, free {} KB", disk.total, disk.free);
-//        println!("hostname: {}", hostname().unwrap());
