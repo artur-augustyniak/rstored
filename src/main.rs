@@ -45,6 +45,7 @@ fn initiator(
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();
                 let reload = reload_trigger_rx.recv();
+                w.stop();
                 let msg = format!("Worker restart {:?}", reload);
                 logger.log(Severity::LOG_NOTICE, &msg);
             }

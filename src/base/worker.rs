@@ -6,19 +6,14 @@
 
 extern crate syslog;
 
-use std::process::{exit};
 use ::probing::Probe;
 use std::thread::{spawn, sleep};
-
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
+use std::sync::{Arc};
 use ::logging::{Logger};
 use ::base::{Config};
-
-pub use logging::logger::syslog::Severity as Severity;
-
-static CONCURRENCY_ERROR_EXIT_CODE: i32 = 0x3;
+use logging::logger::syslog::Severity as Severity;
 static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 100;
 
 #[derive(Debug)]
@@ -26,8 +21,7 @@ pub struct Worker {
     logger: Logger,
     ops: Arc<Vec<Box<Probe>>>,
     config: Config,
-    rx: Arc<Mutex<Receiver<()>>>,
-    tx: Arc<Mutex<Sender<()>>>
+    should_stop: Arc<AtomicBool>,
 }
 
 impl Worker {
@@ -36,50 +30,38 @@ impl Worker {
         operations: Arc<Vec<Box<Probe>>>,
         c: Config
     ) -> Worker {
-        let (tx, rx) = mpsc::channel();
         Worker {
             logger: logger,
             ops: operations,
             config: c,
-            rx: Arc::new(Mutex::new(rx)),
-            tx: Arc::new(Mutex::new(tx))
+            should_stop: Arc::new(AtomicBool::new(false))
         }
     }
 
+
+    pub fn stop(&self) -> () {
+        self.should_stop.store(true, Ordering::SeqCst);
+    }
+
     pub fn start(&self) -> () {
-        let rx = self.rx.clone();
-        let ops = self.ops.clone();
-        let logger = self.logger.clone();
-        let timeout = self.config.get_timeout() + CPU_ANTI_HOG_MILLIS_OFFSET;
-        spawn(move || {
-            loop {
-                match rx.lock() {
-                    Ok(guard) => {
-                        match guard.try_recv() {
-                            Err(TryRecvError::Disconnected) => {
-                                logger.log(Severity::LOG_CRIT, "Terminating, worker channel disconnected");
-                                exit(::SIGNALING_ERROR_EXIT_CODE);
-                            }
-                            Ok(_) => {
-                                logger.log(Severity::LOG_NOTICE, "Finishing, poison pill received");
-                                break
-                            }
-                            Err(TryRecvError::Empty) => {
-                                for op in ops.iter() {
-                                    op.exec();
-                                }
-                                sleep(Duration::from_millis(timeout));
-                            }
-                        }
+        let a_len = self.ops.len();
+        for i in 0..a_len {
+            let ops = self.ops.clone();
+            let logger = self.logger.clone();
+            let timeout = self.config.get_timeout() + CPU_ANTI_HOG_MILLIS_OFFSET;
+            let stop_bool = self.should_stop.clone();
+            spawn(move || {
+                loop {
+                    if stop_bool.load(Ordering::SeqCst) {
+                        let msg = format!("@Thread: {} - terminating", ops[i].get_thread_id());
+                        logger.log(Severity::LOG_INFO, &msg);
+                        break
                     }
-                    Err(err) => {
-                        let msg = format!("Mutex lock error: {:?}", err);
-                        logger.log(Severity::LOG_ALERT, &msg);
-                        exit(CONCURRENCY_ERROR_EXIT_CODE);
-                    }
+                    ops[i].exec();
+                    sleep(Duration::from_millis(timeout));
                 }
-            }
-        });
+            });
+        }
     }
 }
 
@@ -87,16 +69,7 @@ impl Worker {
 impl Drop for Worker {
     fn drop(&mut self) {
 
-        match self.tx.lock() {
-            Ok(guard) => {
-                let _ = guard.send(());
-                let msg = format!("Worker drop, <free({:?}>)", self);
-                self.logger.log(Severity::LOG_INFO, &msg);
-            }
-            Err(err) => {
-                println!("Error: {:?}", err);
-                exit(CONCURRENCY_ERROR_EXIT_CODE);
-            }
-        }
+        let msg = format!("Worker drop, <free({:?}>)", self);
+        self.logger.log(Severity::LOG_INFO, &msg);
     }
 }
