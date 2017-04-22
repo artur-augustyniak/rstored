@@ -7,7 +7,7 @@ extern crate unix_daemonize;
 extern crate getopts;
 
 use logging::logger::syslog::Severity;
-use base::{Operation, DebugPrint, Ls, FakeSpinner};
+use base::{Operation, DebugPrint, Ls, FakeSpinner, FreeMem};
 use logging::{LogDest, Logger};
 use base::{Worker, Config};
 use getopts::Options;
@@ -35,9 +35,14 @@ fn initiator(
         match Config::new(cfg_file_path) {
             Ok(c) => {
                 let mut v: Vec<Box<Operation>> = Vec::new();
-                v.push(Box::new(DebugPrint::new(logger.clone())));
-                v.push(Box::new(Ls::new(logger.clone())));
-                v.push(Box::new(FakeSpinner::new(logger.clone())));
+
+//                v.push(Box::new(DebugPrint::new(logger.clone())));
+//                v.push(Box::new(Ls::new(logger.clone())));
+//                v.push(Box::new(FakeSpinner::new(logger.clone())));
+
+                v.push(Box::new(FreeMem::new(logger.clone())));
+
+
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();
                 let reload = reload_trigger_rx.recv();

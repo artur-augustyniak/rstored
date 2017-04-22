@@ -1,8 +1,8 @@
 #TODO
+- ops w pluginach
 - cleanup log msgs
 - tdd
 - simplyfy error-option handling
-- ops w pluginach
 - handle unwrap i poprawki kodu wg err reporting rustlang
 - dynamiczne ładowanie pluginów `Operation` natywne i w innych językach
 - porządek z importami ::base
