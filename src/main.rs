@@ -42,8 +42,9 @@ fn initiator(
                 v.push(Box::new(Os::new(logger.clone())));
 
 
-                //TODO plugins search
+
                 v.push(Box::new(RustPlugin::new(logger.clone())));
+                v.push(Box::new(CPlugin::new(logger.clone())));
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();

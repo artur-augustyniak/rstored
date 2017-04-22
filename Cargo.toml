@@ -2,7 +2,6 @@
 name = "rstored"
 version = "0.1.0"
 authors = ["Artur Augustyniak <artur@aaugustyniak.pl>"]
-
 [dependencies]
 syslog = "3.2.0"
 rust-ini = "0.10.0"
