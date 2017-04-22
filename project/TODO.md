@@ -1,4 +1,6 @@
 #TODO
+probe'y muszą parsować json
+logowanie do sysloga od ustawienia level większośc ma iśc via webserver
 builins
 //        println!("proc total: {}", proc_total().unwrap());
 //        let load = loadavg().unwrap();

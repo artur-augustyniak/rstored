@@ -1,7 +1,5 @@
-extern crate sys_info;
 extern crate libloading as lib;
 
-use self::sys_info::*;
 
 use super::probe::Probe;
 use ::logging::{Logger};
@@ -23,9 +21,9 @@ impl Plugin {
 }
 
 fn call_dynamic() -> lib::Result<String> {
-    let lib = try!(lib::Library::new("/tmp/libsomelib.so"));
+    let lib = try!(lib::Library::new("/tmp/libexample.so"));
     unsafe {
-        let func: lib::Symbol<unsafe extern fn() -> String> = try!(lib.get(b"hosts"));
+        let func: lib::Symbol<unsafe extern fn() -> String> = try!(lib.get(b"run_probe"));
         Ok(func())
     }
 }
