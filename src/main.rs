@@ -42,6 +42,9 @@ fn initiator(
                 v.push(Box::new(Os::new(logger.clone())));
 
 
+                //TODO plugins search
+                v.push(Box::new(Plugin::new(logger.clone())));
+
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();
                 let reload = reload_trigger_rx.recv();

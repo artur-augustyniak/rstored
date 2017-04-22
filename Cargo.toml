@@ -13,6 +13,7 @@ unix-daemonize = "0.1"
 getopts = "0.2.14"
 libc = "0.2.0"
 sys-info = "0.4.1"
+libloading = "0.3.4"
 
 #log = "0.3"
 #rustless = "0.10.0"
