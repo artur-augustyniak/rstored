@@ -7,21 +7,21 @@ use logging::logger::syslog::Severity;
 
 
 #[derive(Debug)]
-pub struct Plugin {
+pub struct RustPlugin {
     logger: Logger
 }
 
 
-impl Plugin {
-    pub fn new(logger: Logger) -> Plugin {
-        let mem = Plugin { logger: logger };
+impl RustPlugin {
+    pub fn new(logger: Logger) -> RustPlugin {
+        let mem = RustPlugin { logger: logger };
         mem.register_probe();
         mem
     }
 }
 
 fn call_dynamic() -> lib::Result<String> {
-    let lib = try!(lib::Library::new("/tmp/libexample.so"));
+    let lib = try!(lib::Library::new("/tmp/librustexampleplugin.so"));
     unsafe {
         let func: lib::Symbol<unsafe extern fn() -> String> = try!(lib.get(b"run_probe"));
         Ok(func())
@@ -29,7 +29,7 @@ fn call_dynamic() -> lib::Result<String> {
 }
 
 
-impl Probe for Plugin {
+impl Probe for RustPlugin {
     fn exec(&self) -> () {
         match call_dynamic() {
             Ok(json_str) => {

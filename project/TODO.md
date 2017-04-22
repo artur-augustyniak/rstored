@@ -1,4 +1,7 @@
 #TODO
+plugin search
+użyć register probe do jednorazowego załądowania liba
+wg rust-ffi repo bindingi do innych języków
 probe'y muszą parsować json
 logowanie do sysloga od ustawienia level większośc ma iśc via webserver
 builins
