@@ -1,5 +1,5 @@
 #TODO
-- ops w pluginach
+- ops w pluginach albo private crates
 - cleanup log msgs
 - tdd
 - simplyfy error-option handling

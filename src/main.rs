@@ -1,15 +1,12 @@
 mod base;
 mod logging;
+mod probing;
 
 extern crate chan;
 extern crate chan_signal;
 extern crate unix_daemonize;
 extern crate getopts;
 
-use logging::logger::syslog::Severity;
-use base::{Operation, DebugPrint, Ls, FakeSpinner, FreeMem};
-use logging::{LogDest, Logger};
-use base::{Worker, Config};
 use getopts::Options;
 use std::env;
 use std::sync::{Arc};
@@ -20,6 +17,11 @@ use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
+
+use logging::logger::syslog::Severity;
+use base::{Worker, Config};
+use probing::{Probe, Mem};
+use logging::{LogDest, Logger};
 
 static SIGNALING_ERROR_EXIT_CODE: i32 = 0x1;
 static CONFIG_ERROR_EXIT_CODE: i32 = 0x2;
@@ -34,13 +36,10 @@ fn initiator(
     loop {
         match Config::new(cfg_file_path) {
             Ok(c) => {
-                let mut v: Vec<Box<Operation>> = Vec::new();
+                let mut v: Vec<Box<Probe>> = Vec::new();
 
-//                v.push(Box::new(DebugPrint::new(logger.clone())));
-//                v.push(Box::new(Ls::new(logger.clone())));
-//                v.push(Box::new(FakeSpinner::new(logger.clone())));
+                v.push(Box::new(Mem::new(logger.clone())));
 
-                v.push(Box::new(FreeMem::new(logger.clone())));
 
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);

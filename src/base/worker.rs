@@ -7,7 +7,7 @@
 extern crate syslog;
 
 use std::process::{exit};
-use base::{Operation};
+use ::probing::Probe;
 use std::thread::{spawn, sleep};
 
 use std::time::Duration;
@@ -24,7 +24,7 @@ static CPU_ANTI_HOG_MILLIS_OFFSET: u64 = 100;
 #[derive(Debug)]
 pub struct Worker {
     logger: Logger,
-    ops: Arc<Vec<Box<Operation>>>,
+    ops: Arc<Vec<Box<Probe>>>,
     config: Config,
     rx: Arc<Mutex<Receiver<()>>>,
     tx: Arc<Mutex<Sender<()>>>
@@ -33,7 +33,7 @@ pub struct Worker {
 impl Worker {
     pub fn new(
         logger: Logger,
-        operations: Arc<Vec<Box<Operation>>>,
+        operations: Arc<Vec<Box<Probe>>>,
         c: Config
     ) -> Worker {
         let (tx, rx) = mpsc::channel();
