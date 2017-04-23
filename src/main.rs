@@ -37,14 +37,14 @@ fn initiator(
         match Config::new(cfg_file_path) {
             Ok(c) => {
                 let mut v: Vec<Box<Probe>> = Vec::new();
+                v.push(Box::new(Top::new(logger.clone())));
+
                 v.push(Box::new(Mem::new(logger.clone())));
                 v.push(Box::new(Swap::new(logger.clone())));
                 v.push(Box::new(Os::new(logger.clone())));
-
-
-
+                v.push(Box::new(Fs::new(logger.clone())));
                 v.push(Box::new(RustPlugin::new(logger.clone())));
-                v.push(Box::new(CPlugin::new(logger.clone())));
+//                v.push(Box::new(CPlugin::new(logger.clone())));
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();

@@ -18,12 +18,14 @@ pub trait Probe: Send + Sync + Debug {
     }
 }
 
+pub fn def_register_probe<T: Probe + ? Sized>(x: &T) {
+    let msg = format!("@Thread: {} - Registering probe: {:?} ", x.get_thread_id(), x);
+    x.get_logger().log(Severity::LOG_INFO, &msg);
+}
+
 fn get_thread_id() -> libc::pthread_t {
     unsafe { libc::pthread_self() }
 }
 
-fn def_register_probe<T: Probe + ? Sized>(x: &T) {
-    let msg = format!("@Thread: {} - Registering probe: {:?} ", x.get_thread_id(), x);
-    x.get_logger().log(Severity::LOG_INFO, &msg);
-}
+
 

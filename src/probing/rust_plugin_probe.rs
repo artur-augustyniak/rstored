@@ -2,45 +2,49 @@ extern crate libloading as lib;
 
 
 use super::probe::Probe;
+use std::sync::Arc;
 use ::logging::{Logger};
 use logging::logger::syslog::Severity;
+use std::io::{Error, ErrorKind};
 
+type ExternProbe<'a> = lib::Symbol<'a, unsafe extern fn() -> String>;
 
 #[derive(Debug)]
 pub struct RustPlugin {
-    logger: Logger
+    logger: Logger,
+    dynlib: lib::Result<lib::Library>
 }
 
 
 impl RustPlugin {
     pub fn new(logger: Logger) -> RustPlugin {
-        let mem = RustPlugin { logger: logger };
+        let lib = lib::Library::new("/tmp/librustexampleplugin.so");
+        let mem = RustPlugin { logger: logger, dynlib: lib };
         mem.register_probe();
         mem
     }
 }
 
-fn call_dynamic() -> lib::Result<String> {
-    let lib = try!(lib::Library::new("/tmp/librustexampleplugin.so"));
-    unsafe {
-        let func: lib::Symbol<unsafe extern fn() -> String> = try!(lib.get(b"run_probe"));
-        Ok(func())
-    }
-}
-
-
 impl Probe for RustPlugin {
-    fn exec(&self) -> () {
-        match call_dynamic() {
-            Ok(json_str) => {
-                let msg = format!("@Thread: {} - json_string: {}",
-                                  self.get_thread_id(),
-                                  json_str
-                );
-                self.logger.log(Severity::LOG_INFO, &msg);
-            }
+    fn register_probe(&self) -> () {
+        println!("TODO custom register");
+        ::probing::probe::def_register_probe(self);
+    }
 
-            Err(err) => {
+    fn exec(&self) -> () {
+        match self.dynlib {
+            Ok(ref lib) => {
+                unsafe {
+                    let func: ExternProbe = lib.get(b"run_probe").unwrap();
+                    let json_str = func();
+                    let msg = format!("@Thread: {} - json_string: {}",
+                                      self.get_thread_id(),
+                                      json_str
+                    );
+                    self.logger.log(Severity::LOG_INFO, &msg);
+                }
+            }
+            Err(ref err) => {
                 let msg = format!("{:?}", err);
                 self.logger.log(Severity::LOG_ERR, &msg);
             }
@@ -49,5 +53,13 @@ impl Probe for RustPlugin {
 
     fn get_logger(&self) -> &Logger {
         &self.logger
+    }
+}
+
+impl Drop for RustPlugin {
+    fn drop(&mut self) {
+
+        let msg = format!("RustPlugin drop, <free({:?}>)", self);
+        self.logger.log(Severity::LOG_INFO, &msg);
     }
 }

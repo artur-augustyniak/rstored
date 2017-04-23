@@ -1,16 +1,8 @@
 #TODO
-plugin search
-użyć register probe do jednorazowego załądowania liba
-wg rust-ffi repo bindingi do innych języków
-probe'y muszą parsować json
-logowanie do sysloga od ustawienia level większośc ma iśc via webserver
-builins
-//        println!("proc total: {}", proc_total().unwrap());
-//        let load = loadavg().unwrap();
-//        println!("load: {} {} {}", load.one, load.five, load.fifteen);
-
-//        let disk = disk_info().unwrap();
-//        println!("disk: total {} KB, free {} KB", disk.total, disk.free);
+- plugin search
+- wg rust-ffi repo bindingi do innych języków
+- probe'y muszą parsować json
+- logowanie do sysloga od ustawienia level większośc ma iśc via webserver
 - TODO timeout warn, probes without loops check? w przypadku zawieszonych probów
 - cleanup log msgs
 - tdd
