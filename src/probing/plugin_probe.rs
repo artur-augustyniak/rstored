@@ -2,30 +2,29 @@ extern crate libloading as lib;
 
 
 use super::probe::Probe;
-use std::sync::Arc;
 use ::logging::{Logger};
 use logging::logger::syslog::Severity;
-use std::io::{Error, ErrorKind};
+use std::ffi::OsStr;
 
 type ExternProbe<'a> = lib::Symbol<'a, unsafe extern fn() -> String>;
 
 #[derive(Debug)]
-pub struct RustPlugin {
+pub struct PluginProbe {
     logger: Logger,
     dynlib: lib::Result<lib::Library>
 }
 
 
-impl RustPlugin {
-    pub fn new(logger: Logger) -> RustPlugin {
-        let lib = lib::Library::new("/tmp/librustexampleplugin.so");
-        let mem = RustPlugin { logger: logger, dynlib: lib };
-        mem.register_probe();
-        mem
+impl PluginProbe {
+    pub fn new<P: AsRef<OsStr>>(logger: Logger, dso: P) -> PluginProbe {
+        let lib = lib::Library::new(dso);
+        let probe = PluginProbe { logger: logger, dynlib: lib };
+        probe.register_probe();
+        probe
     }
 }
 
-impl Probe for RustPlugin {
+impl Probe for PluginProbe {
     fn register_probe(&self) -> () {
         println!("TODO custom register");
         ::probing::probe::def_register_probe(self);
@@ -56,9 +55,8 @@ impl Probe for RustPlugin {
     }
 }
 
-impl Drop for RustPlugin {
+impl Drop for PluginProbe {
     fn drop(&mut self) {
-
         let msg = format!("RustPlugin drop, <free({:?}>)", self);
         self.logger.log(Severity::LOG_INFO, &msg);
     }

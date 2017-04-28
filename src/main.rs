@@ -17,6 +17,7 @@ use chan::{Receiver};
 use chan_signal::{Signal, notify};
 use unix_daemonize::{daemonize_redirect, ChdirMode};
 use std::sync::mpsc::{Sender};
+use std::path::Path;
 
 use logging::logger::syslog::Severity;
 use base::{Worker, Config};
@@ -34,7 +35,7 @@ fn initiator(
     cfg_file_path: &str
 ) {
     loop {
-        match Config::new(cfg_file_path) {
+        match Config::new(Path::new(cfg_file_path)) {
             Ok(c) => {
                 let mut v: Vec<Box<Probe>> = Vec::new();
                 v.push(Box::new(Top::new(logger.clone())));
@@ -43,8 +44,15 @@ fn initiator(
                 v.push(Box::new(Swap::new(logger.clone())));
                 v.push(Box::new(Os::new(logger.clone())));
                 v.push(Box::new(Fs::new(logger.clone())));
-                v.push(Box::new(RustPlugin::new(logger.clone())));
-//                v.push(Box::new(CPlugin::new(logger.clone())));
+                v.push(
+                    Box::new(
+                        PluginProbe::new(
+                            logger.clone(),
+                            c.get_probes_folder()
+                        )
+                    )
+                );
+
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();

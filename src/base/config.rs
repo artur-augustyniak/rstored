@@ -1,44 +1,66 @@
 extern crate ini;
 
-use std::collections::HashMap;
 use self::ini::Ini;
+use self::ini::ini::Error as IniError;
+use std::path::Path;
+use std::error::Error;
+use std::num::ParseIntError;
+
+#[derive(Debug)]
+pub struct ConfigError {
+    pub msg: String
+}
+
+impl From<IniError> for ConfigError {
+    fn from(e: IniError) -> ConfigError {
+        ConfigError { msg: e.msg }
+    }
+}
+
+
+impl From<ParseIntError> for ConfigError {
+    fn from(e: ParseIntError) -> ConfigError {
+        ConfigError { msg: e.description().to_string() }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct Config {
-    timeout: u64
+    timeout: u64,
+    probes_folder_path: String
 }
 
 impl Config {
-    pub fn new(config_file: &str) -> Result<Config, String> {
-        match Ini::load_from_file(config_file) {
-            Ok(ini) => {
-                let mut config = HashMap::new();
-                let general_section_name = "__General__".into();
-                for (sec, prop) in ini.iter() {
-                    let mut section_contents = HashMap::new();
-                    for (k, v) in prop.iter() {
-                        section_contents.insert(k.clone(), v.clone());
-                    }
-                    let section_name = sec.as_ref().unwrap_or(&general_section_name).clone();
-                    config.insert(section_name, section_contents);
-                }
+    pub fn new<P: AsRef<Path>>(config_file: P) -> Result<Config, ConfigError> {
+        let ini = Ini::load_from_file(config_file)?;
 
-                config.get("daemon")
-                    .ok_or("no daemon section in config file".to_string())
-                    .and_then(|section| section.get("worker-loop-timeout")
-                        .ok_or("no worker-loop-timeout param in daemon section".to_string()))
-                    .and_then(|section_param| section_param.parse::<u64>().map_err(|err| err.to_string()))
-                    .and_then(|timeout_converted| Ok(Config { timeout: timeout_converted }))
-            }
+        let timeout_converted = ini.get_from(Some("daemon"), "worker-loop-timeout")
+            .ok_or(
+                ConfigError { msg: "worker-loop-timeout err".to_string() }
+            )
+            .and_then(|v| v.parse::<u64>()
+                .map_err(
+                    |err| ConfigError::from(err)
+                )
+            )?;
 
-            Err(e) => {
-                Err(e.to_string())
-            }
-        }
+        let probes_path = ini.get_from(Some("daemon"), "probes-folder-path")
+            .ok_or(
+                ConfigError { msg: "probes-folder-path err".to_string() }
+            )?;
+
+        Ok(Config { timeout: timeout_converted, probes_folder_path: probes_path.to_string() })
     }
+
 
     pub fn get_timeout(&self) -> u64 {
         self.timeout
+    }
+
+
+    pub fn get_probes_folder<'a>(&'a self) -> &'a String {
+        return &self.probes_folder_path;
     }
 }
 
