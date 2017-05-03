@@ -5,6 +5,7 @@ use self::ini::ini::Error as IniError;
 use std::path::Path;
 use std::error::Error;
 use std::num::ParseIntError;
+use std::fs;
 
 #[derive(Debug)]
 pub struct ConfigError {
@@ -59,9 +60,24 @@ impl Config {
     }
 
 
-    pub fn get_probes_folder<'a>(&'a self) -> &'a String {
-        return &self.probes_folder_path;
+    pub fn get_plugins_paths(&self) -> Vec<String> {
+        fn is_so(e: &fs::DirEntry) -> bool {
+            let p = e.path();
+            p.is_file() && p.extension().map(|s| s == "so").unwrap_or(false)
+        }
+
+
+        let mut v: Vec<String> = Vec::new();
+
+        if let Ok(entries) = fs::read_dir(&Path::new(&self.probes_folder_path)) {
+            for entry in entries.filter_map(|e| e.ok()).filter(is_so) {
+                v.push(entry.path().into_os_string().into_string().unwrap());
+            }
+        }
+
+        return v;
     }
 }
+
 
 

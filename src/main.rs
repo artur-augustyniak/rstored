@@ -38,21 +38,15 @@ fn initiator(
         match Config::new(Path::new(cfg_file_path)) {
             Ok(c) => {
                 let mut v: Vec<Box<Probe>> = Vec::new();
+                v.push(Box::new(Fs::new(logger.clone())));
+                v.push(Box::new(Mem::new(logger.clone())));
+                v.push(Box::new(Os::new(logger.clone())));
+                v.push(Box::new(Swap::new(logger.clone())));
                 v.push(Box::new(Top::new(logger.clone())));
 
-                v.push(Box::new(Mem::new(logger.clone())));
-                v.push(Box::new(Swap::new(logger.clone())));
-                v.push(Box::new(Os::new(logger.clone())));
-                v.push(Box::new(Fs::new(logger.clone())));
-                v.push(
-                    Box::new(
-                        PluginProbe::new(
-                            logger.clone(),
-                            c.get_probes_folder()
-                        )
-                    )
-                );
-
+                for plugin_path in c.get_plugins_paths().iter() {
+                    v.push(Box::new(PluginProbe::new(logger.clone(), plugin_path)));
+                }
 
                 let w = Worker::new(logger.clone(), Arc::new(v), c);
                 w.start();

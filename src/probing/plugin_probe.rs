@@ -5,8 +5,10 @@ use super::probe::Probe;
 use ::logging::{Logger};
 use logging::logger::syslog::Severity;
 use std::ffi::OsStr;
+use std::ffi::CStr;
+use std::os::raw::c_char;
 
-type ExternProbe<'a> = lib::Symbol<'a, unsafe extern fn() -> String>;
+type ExternProbe<'a> = lib::Symbol<'a, unsafe extern fn() -> *const c_char>;
 
 #[derive(Debug)]
 pub struct PluginProbe {
@@ -26,7 +28,6 @@ impl PluginProbe {
 
 impl Probe for PluginProbe {
     fn register_probe(&self) -> () {
-        println!("TODO custom register");
         ::probing::probe::def_register_probe(self);
     }
 
@@ -35,10 +36,10 @@ impl Probe for PluginProbe {
             Ok(ref lib) => {
                 unsafe {
                     let func: ExternProbe = lib.get(b"run_probe").unwrap();
-                    let json_str = func();
-                    let msg = format!("@Thread: {} - json_string: {}",
+                    let extern_str = CStr::from_ptr(func());
+                    let msg = format!("@Thread: {} - content: {:?}",
                                       self.get_thread_id(),
-                                      json_str
+                                      extern_str
                     );
                     self.logger.log(Severity::LOG_INFO, &msg);
                 }
@@ -57,7 +58,7 @@ impl Probe for PluginProbe {
 
 impl Drop for PluginProbe {
     fn drop(&mut self) {
-        let msg = format!("RustPlugin drop, <free({:?}>)", self);
+        let msg = format!("Plugin drop, <free({:?}>)", self);
         self.logger.log(Severity::LOG_INFO, &msg);
     }
 }
