@@ -1,5 +1,5 @@
 #TODO
-- unmap lib@plugin probe (reload leak?)
+- plik nagłówkowy @gyn stream
 - tdd
 - python plugins (rust-ffi repo)
 - log levels

@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use ::logging::{Logger};
 use logging::logger::syslog::Severity;
 
-pub trait Probe: Send + Sync + Debug {
+pub trait Probe: Send + Sync + Debug + Drop{
     fn exec(&self) -> ();
 
     fn get_logger(&self) -> &Logger;

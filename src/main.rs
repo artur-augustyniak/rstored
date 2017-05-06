@@ -52,7 +52,7 @@ fn initiator(
                 w.start();
                 let reload = reload_trigger_rx.recv();
                 w.stop();
-                let msg = format!("Worker restart {:?}", reload);
+                let msg = format!("Worker stop {:?}", reload);
                 logger.log(Severity::LOG_NOTICE, &msg);
             }
             Err(err) => {

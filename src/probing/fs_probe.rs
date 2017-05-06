@@ -45,3 +45,10 @@ impl Probe for Fs {
         &self.logger
     }
 }
+
+impl Drop for Fs {
+    fn drop(&mut self) {
+        let msg = format!("Builtin probe drop, <free({:?}>)", self);
+        self.logger.log(Severity::LOG_INFO, &msg);
+    }
+}

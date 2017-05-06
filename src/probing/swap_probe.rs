@@ -46,6 +46,11 @@ impl Probe for Swap {
     }
 }
 
-
+impl Drop for Swap {
+    fn drop(&mut self) {
+        let msg = format!("Builtin probe drop, <free({:?}>)", self);
+        self.logger.log(Severity::LOG_INFO, &msg);
+    }
+}
 
 
