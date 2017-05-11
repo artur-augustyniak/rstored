@@ -1,7 +1,6 @@
 #TODO
-- plik nagłówkowy @gyn stream
+- python plugins (rust-ffi repo) http://eli.thegreenplace.net/2013/03/09/python-ffi-with-ctypes-and-cffi
 - tdd
-- python plugins (rust-ffi repo)
 - log levels
 - remove/unmap corrupted probes/timeout 
 - simplyfy error-option handling

@@ -8,7 +8,7 @@ use std::ffi::OsStr;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
-type ExternProbe<'a> = lib::Symbol<'a, unsafe extern fn() -> *const c_char>;
+type ExternProbe<'a> = lib::Symbol<'a, extern "C" fn() -> *const c_char>;
 
 #[derive(Debug)]
 pub struct PluginProbe {
