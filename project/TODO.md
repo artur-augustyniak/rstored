@@ -1,4 +1,5 @@
 #TODO
+- rust emscripten target  + kompilator python do c (jako pluginy) rust na virt https://blog.rust-lang.org/2016/12/22/Rust-1.14.html
 - python plugins (rust-ffi repo) http://eli.thegreenplace.net/2013/03/09/python-ffi-with-ctypes-and-cffi
 - tdd
 - log levels
